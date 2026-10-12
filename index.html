@@ -79,7 +79,8 @@ header { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content:
 .floor .bin { fill: var(--bin-soft); stroke: var(--case); stroke-width: 1.5; pointer-events: none; }
 .floor .bin.on { fill: var(--bin); stroke: #fff; stroke-width: 2.5; }
 .floor .bin-num { font-family: var(--display); font-weight: 800; font-size: 17px; fill: #1C1C1A; pointer-events: none; }
-.floor .axis { font-family: var(--mono); font-size: 8.5px; fill: var(--muted); }
+.floor .axis { font-family: var(--mono); font-size: 13px; font-weight: 600; fill: var(--muted); }
+.floor .handle-label { font-family: var(--mono); font-size: 12px; fill: var(--muted); letter-spacing: .1em; }
 .map-note { font-size: .82rem; color: var(--muted); margin: 0; }
 
 .toolbar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
@@ -177,7 +178,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
 
       <section class="group" aria-labelledby="h-layout">
         <h2 id="h-layout">Layout <small>drag empty cells to draw · drag a bin to move it</small></h2>
-        <svg class="floor" id="floor" viewBox="-14 -14 428 330" role="img" aria-label="Case floor grid. Drag on empty cells to draw a bin. Drag a bin to move it."></svg>
+        <svg class="floor" id="floor" viewBox="-32 -32 448 344" role="img" aria-label="Case floor grid. Drag on empty cells to draw a bin. Drag a bin to move it."></svg>
         <div class="toolbar" id="presets"></div>
         <div class="toolbar">
           <span class="lbl">Start from</span>
@@ -372,7 +373,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
     el("rect", { width: 6, height: 6, style: "fill:var(--case)" }, pat);
     el("line", { x1: 0, y1: 0, x2: 0, y2: 6, style: "stroke:var(--case-line)", "stroke-width": 2 }, pat);
     el("rect", { x: hx + 4, y: MAIN_H + 4, width: hw - 8, height: STRIP_H - 4, rx: 4, fill: "url(#hatch)", style: "stroke:var(--case-line)" }, floor);
-    el("text", { x: hx + hw / 2, y: MAIN_H + STRIP_H / 2 + 4, "text-anchor": "middle", class: "axis" }, floor).textContent = "HANDLE";
+    el("text", { x: hx + hw / 2, y: MAIN_H + STRIP_H / 2 + 4, "text-anchor": "middle", class: "handle-label" }, floor).textContent = "HANDLE";
     Object.keys(zones).forEach(function (zk) {
       var z = zones[zk];
       for (var r = 0; r < z.rows; r++) for (var c = 0; c < z.cols; c++)
@@ -384,8 +385,8 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
       var z = zones[zk];
       for (var r3 = 1; r3 <= z.rows; r3++) for (var c3 = 0; c3 <= z.cols; c3++) el("circle", { cx: z.x0 + c3 * z.cw, cy: z.y0 + r3 * z.rh, r: 10, class: "pocket" }, pg);
     });
-    el("text", { x: FLOOR_W / 2, y: -10.5, "text-anchor": "middle", class: "axis" }, floor).textContent = "N cells · 40 mm";
-    el("text", { x: -10, y: MAIN_H / 2, "text-anchor": "middle", class: "axis", transform: "rotate(-90 -10 " + MAIN_H / 2 + ")" }, floor).textContent = "W · 54";
+    el("text", { x: FLOOR_W / 2, y: -15, "text-anchor": "middle", class: "axis" }, floor).textContent = "N cells · 40 mm";
+    el("text", { x: -15, y: MAIN_H / 2, "text-anchor": "middle", class: "axis", transform: "rotate(-90 -15 " + MAIN_H / 2 + ")" }, floor).textContent = "W cells · 54 mm";
     binG = el("g", {}, floor);
   }
   function binRect(b) {
