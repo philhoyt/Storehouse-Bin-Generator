@@ -33,7 +33,7 @@ div_n = 1;  // compartments across the N direction
 divider_height_pct = 100; // [20:5:100]
 
 /* [Feet] */
-feet = "corners"; // [corners:Corners (like stock), perimeter:Every cell corner on the edge, none:None]
+feet = "none";    // [none:None (prints flat, no supports), corners:Corners (like stock), perimeter:Every cell corner on the edge]
 
 /* [Grid calibration] */
 pitch_w   = 54;    // mm per W cell (stock large bin: 108 = 2 cells)

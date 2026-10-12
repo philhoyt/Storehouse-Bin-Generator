@@ -232,11 +232,11 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
           <input type="range" id="divPct" min="20" max="100" step="5">
         </div>
 
-        <p class="sub">Feet</p>
+        <p class="sub">Feet <span style="text-transform:none;letter-spacing:0">· feet need supports to print</span></p>
         <div class="seg" role="group" aria-label="Feet">
+          <button type="button" id="feet-none" data-feet="none">None</button>
           <button type="button" id="feet-corners" data-feet="corners">Corners</button>
           <button type="button" id="feet-edge" data-feet="edge">Every edge cell</button>
-          <button type="button" id="feet-none" data-feet="none">None</button>
         </div>
 
         <div class="toolbar">
@@ -293,7 +293,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
 
   // ================================================================ state
   var MEASURED = { wall: 1.6, floorT: 1.6, cornerR: 3, draft: 1.5, clearance: 0.25, pitchW: 54, pitchN: 40, hM: 50, hL: 94, footD: 5, footH: 1.6 };
-  var BIN_OPTS = { ht: "full", customH: 30, divW: 1, divN: 1, divPct: 100, feet: "corners" };
+  var BIN_OPTS = { ht: "full", customH: 30, divW: 1, divN: 1, divPct: 100, feet: "none" };
   var ADV_KEYS = Object.keys(MEASURED);
   var FOOT_INSET = 4;
   var nextId = 1;
@@ -304,7 +304,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
 
   var S = Object.assign({ caseType: "M", view: "case", bins: [], selId: null }, MEASURED);
   try {
-    var saved = JSON.parse(localStorage.getItem("sbb-state-v3") || "null");
+    var saved = JSON.parse(localStorage.getItem("sbb-state-v4") || "null");
     if (saved && typeof saved === "object") {
       if (Array.isArray(saved.bins)) {
         S = Object.assign(S, saved);
@@ -318,7 +318,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
       }
     }
   } catch (e) {}
-  function persist() { try { localStorage.setItem("sbb-state-v3", JSON.stringify(S)); } catch (e) {} }
+  function persist() { try { localStorage.setItem("sbb-state-v4", JSON.stringify(S)); } catch (e) {} }
 
   var $ = function (id) { return document.getElementById(id); };
   function sel() { for (var i = 0; i < S.bins.length; i++) if (S.bins[i].id === S.selId) return S.bins[i]; return null; }
@@ -541,7 +541,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
   function fileStem(b) {
     var s = codeOf(b);
     if (b.divW > 1 || b.divN > 1) s += "-div" + b.divW + "x" + b.divN + (b.divPct < 100 ? "-" + b.divPct + "pct" : "");
-    if (b.feet === "none") s += "-nofeet"; else if (b.feet === "edge") s += "-edgefeet";
+    if (b.feet === "corners") s += "-feet"; else if (b.feet === "edge") s += "-edgefeet";
     return s;
   }
   function describe(b) {
@@ -549,7 +549,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
     var D = dims(b);
     bits.push(b.ht === "full" ? "full height" : b.ht === "half" ? "half height" : Math.round(D.h) + " mm tall");
     if (b.divW > 1 || b.divN > 1) bits.push(b.divW * b.divN + " sections");
-    if (b.feet !== "corners") bits.push(b.feet === "none" ? "no feet" : "edge feet");
+    if (b.feet !== "none") bits.push(b.feet === "corners" ? "corner feet" : "edge feet");
     if (b.zone !== "main") bits.push("handle pocket");
     return bits.join(" · ");
   }
@@ -880,7 +880,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
     S.bins = [newBin("main", 0, 0, 2, 2), newBin("main", 2, 0, 1, 2)];
     S.selId = S.bins[1].id;
   }
-  if (!S.bins.length) { try { if (localStorage.getItem("sbb-state-v3") === null) starter(); } catch (e) { starter(); } }
+  if (!S.bins.length) { try { if (localStorage.getItem("sbb-state-v4") === null) starter(); } catch (e) { starter(); } }
   drawFloor();
   initThree();
   update();

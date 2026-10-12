@@ -50,7 +50,7 @@ Stock bins in this language:
 Measured from stock bins with calipers:
 
 - Walls taper 1.5° per side. A large bin is 108 mm wide at the top, 103 mm at the bottom.
-- Feet are 5 mm round and 1.6 mm tall, one per corner. They drop into 20 mm pockets, so placement is forgiving.
+- Stock bins have 5 mm round feet, 1.6 mm tall, that drop into 20 mm floor pockets. Printed bins skip feet by default. Feet leave the whole floor floating 1.6 mm above the bed, which needs supports. Snug bins stay put without them. You can still turn feet on per bin.
 - Stock bins touch with no gap. Printed bins get 0.25 mm of clearance per side by default.
 
 If a test print is tight, raise **Clearance per side** under **Fit and print**. Start with an `M-1x1`. It's small and quick.
