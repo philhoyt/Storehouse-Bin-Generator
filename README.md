@@ -2,6 +2,8 @@
 
 Print custom bins that drop right into Harbor Freight STOREHOUSE parts cases. Draw the bins you want on the case floor, preview them in 3D, and download every STL in one zip.
 
+**Live app:** https://philhoyt.github.io/Storehouse-Bin-Generator/
+
 Works with:
 
 - [20-Bin Medium Portable Parts Storage Case](https://www.harborfreight.com/20-bin-medium-portable-parts-storage-case-93928.html)
@@ -9,7 +11,9 @@ Works with:
 
 ## Use it
 
-Open `index.html` in a browser, or visit the GitHub Pages site once it's live. No install, no build step.
+**[Open the Storehouse Bin Builder](https://philhoyt.github.io/Storehouse-Bin-Generator/)**
+
+It runs in your browser. No install, no account. You can also open `index.html` locally.
 
 1. Pick the case: Medium or Large.
 2. Drag across empty cells on the floor map to draw a bin. Drag a bin to move it.
