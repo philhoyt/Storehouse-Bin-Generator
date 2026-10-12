@@ -1,0 +1,885 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Design custom 3D-printable bins for Harbor Freight Storehouse parts cases.">
+<style>[hidden]{display:none!important}body{margin:0}img{max-width:100%}</style>
+<title>Storehouse Bin Builder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;800&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: workbench. Controls rail on the left, live 3D on the right. The case floor map is where you draw bins. */
+:root {
+  --bg: #E7E6E0;
+  --panel: #F5F4EF;
+  --ink: #1C1C1A;
+  --muted: #66655E;
+  --line: #CFCDC4;
+  --bin: #F2B200;
+  --bin-deep: #C98F00;
+  --bin-soft: #E9C55A;
+  --case: #242422;
+  --case-line: #3A3A37;
+  --pocket: #151514;
+  --stage: #DCDAD2;
+  --ok: #2F7D4A;
+  --warn: #A3511B;
+  --display: "Barlow Condensed", "Arial Narrow", sans-serif;
+  --body: "Barlow", "Helvetica Neue", Arial, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #141413; --panel: #1D1D1B; --ink: #ECEAE2; --muted: #9B998F; --line: #34332F;
+    --bin: #F5B800; --bin-deep: #D69A00; --bin-soft: #8E7426; --case: #0B0B0A; --case-line: #2C2C29; --pocket: #000;
+    --stage: #232321; --ok: #5DBB7E; --warn: #E08A4F; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #141413; --panel: #1D1D1B; --ink: #ECEAE2; --muted: #9B998F; --line: #34332F;
+  --bin: #F5B800; --bin-deep: #D69A00; --bin-soft: #8E7426; --case: #0B0B0A; --case-line: #2C2C29; --pocket: #000;
+  --stage: #232321; --ok: #5DBB7E; --warn: #E08A4F; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.45; padding: 20px 16px 40px; }
+.wrap { max-width: 1240px; margin: 0 auto; display: grid; gap: 20px; }
+
+header { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 24px; border-bottom: 2px solid var(--ink); padding-bottom: 14px; }
+.brand { display: grid; gap: 2px; }
+.brand h1 { font-family: var(--display); font-weight: 800; font-size: 1.05rem; letter-spacing: .14em; text-transform: uppercase; margin: 0; }
+.brand p { margin: 0; color: var(--muted); font-size: .9rem; }
+.code-plate { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+.code { font-family: var(--display); font-weight: 800; font-size: clamp(3rem, 9vw, 5.25rem); line-height: .85; letter-spacing: .01em; background: var(--bin); color: #1C1C1A; padding: 6px 14px 2px; border-radius: 3px; font-variant-numeric: tabular-nums; }
+.code.empty { background: transparent; color: var(--muted); border: 2px dashed var(--line); }
+.code-meta { font-family: var(--mono); font-size: .8rem; color: var(--muted); display: grid; gap: 2px; font-variant-numeric: tabular-nums; }
+.code-meta b { color: var(--ink); font-weight: 600; }
+
+.main { display: grid; grid-template-columns: minmax(0, 420px) minmax(0, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 860px) { .main { grid-template-columns: minmax(0, 1fr); } .stage-col { position: static; } }
+
+.rail { display: grid; gap: 14px; min-width: 0; }
+.group { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 14px; display: grid; gap: 12px; min-width: 0; }
+.group > h2 { font-family: var(--display); font-weight: 600; font-size: .95rem; letter-spacing: .12em; text-transform: uppercase; margin: 0; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.group > h2 small { font-family: var(--body); letter-spacing: 0; text-transform: none; font-weight: 400; color: var(--muted); font-size: .82rem; }
+.group.disabled { opacity: .45; pointer-events: none; }
+
+.seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
+.seg button { font: inherit; font-size: .88rem; border: 0; background: transparent; color: var(--ink); padding: 8px 6px; cursor: pointer; border-left: 1px solid var(--line); line-height: 1.2; }
+.seg button:first-child { border-left: 0; }
+.seg button small { display: block; font-family: var(--mono); font-size: .7rem; color: var(--muted); }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--panel); }
+.seg button[aria-pressed="true"] small { color: var(--bin); }
+
+.floor { width: 100%; height: auto; display: block; touch-action: none; user-select: none; -webkit-user-select: none; }
+.floor .cell { fill: transparent; stroke: var(--case-line); stroke-width: .8; cursor: crosshair; }
+.floor .cell:hover { fill: rgba(242, 178, 0, .18); }
+.floor .cell.taken { cursor: grab; }
+.floor .pocket { fill: var(--pocket); stroke: var(--case-line); stroke-width: .6; pointer-events: none; }
+.floor .bin { fill: var(--bin-soft); stroke: var(--case); stroke-width: 1.5; pointer-events: none; }
+.floor .bin.on { fill: var(--bin); stroke: #fff; stroke-width: 2.5; }
+.floor .bin-num { font-family: var(--display); font-weight: 800; font-size: 17px; fill: #1C1C1A; pointer-events: none; }
+.floor .axis { font-family: var(--mono); font-size: 8.5px; fill: var(--muted); }
+.map-note { font-size: .82rem; color: var(--muted); margin: 0; }
+
+.toolbar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.chip { font-family: var(--mono); font-size: .75rem; border: 1px solid var(--line); background: transparent; color: var(--ink); padding: 4px 8px; border-radius: 3px; cursor: pointer; }
+.chip:hover { border-color: var(--ink); }
+.chip span { color: var(--muted); font-family: var(--body); }
+.chip.quiet { font-family: var(--body); font-size: .8rem; }
+.toolbar .lbl { font-size: .75rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-right: 2px; }
+
+.binlist { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-height: 260px; overflow-y: auto; }
+.binlist li { display: grid; grid-template-columns: 28px 1fr auto; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 3px; padding: 4px 4px 4px 6px; cursor: pointer; background: var(--bg); }
+.binlist li.on { border-color: var(--ink); background: var(--panel); box-shadow: inset 3px 0 0 var(--bin); }
+.binlist .num { font-family: var(--display); font-weight: 800; font-size: 1.05rem; text-align: center; }
+.binlist .what { font-family: var(--mono); font-size: .82rem; min-width: 0; }
+.binlist .what small { display: block; font-family: var(--body); color: var(--muted); font-size: .76rem; }
+.binlist .del { border: 0; background: transparent; color: var(--muted); font-size: 1.1rem; width: 28px; height: 28px; cursor: pointer; border-radius: 3px; }
+.binlist .del:hover { background: var(--stage); color: var(--warn); }
+.empty-note { font-size: .85rem; color: var(--muted); margin: 0; }
+.full-note { color: var(--warn); }
+
+.size-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.stepper { display: grid; gap: 4px; }
+.stepper label { font-size: .78rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+.stepper .ctl { display: grid; grid-template-columns: 34px 1fr 34px; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
+.stepper button { font: inherit; font-size: 1.1rem; border: 0; background: transparent; color: var(--ink); cursor: pointer; }
+.stepper button:hover { background: var(--stage); }
+.stepper output { text-align: center; font-family: var(--mono); font-weight: 600; padding: 6px 0; font-variant-numeric: tabular-nums; border-inline: 1px solid var(--line); }
+
+.field { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 10px; }
+.field label, .field .lab { font-size: .9rem; }
+.field .val { font-family: var(--mono); font-size: .8rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.field input[type=range] { grid-column: 1 / -1; width: 100%; accent-color: var(--bin-deep); }
+.field input[type=number] { width: 84px; font: inherit; font-family: var(--mono); font-size: .85rem; padding: 4px 6px; border: 1px solid var(--line); border-radius: 3px; background: var(--bg); color: var(--ink); }
+.sub { font-size: .78rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 4px 0 -4px; }
+
+details.group summary { cursor: pointer; font-family: var(--display); font-weight: 600; font-size: .95rem; letter-spacing: .12em; text-transform: uppercase; list-style: none; display: flex; justify-content: space-between; }
+details.group summary::-webkit-details-marker { display: none; }
+details.group summary::after { content: "+"; font-family: var(--mono); }
+details.group[open] summary::after { content: "−"; }
+.adv { display: grid; gap: 10px; }
+
+.stage-col { position: sticky; top: env(safe-area-inset-top, 0px); display: grid; gap: 12px; min-width: 0; }
+.stage { position: relative; background: var(--stage); border: 1px solid var(--line); border-radius: 4px; aspect-ratio: 4 / 3; max-width: 100%; overflow: hidden; }
+.stage canvas { display: block; width: 100%; height: 100%; }
+.stage .tag { position: absolute; left: 10px; bottom: 8px; font-family: var(--mono); font-size: .72rem; color: var(--muted); pointer-events: none; }
+.stage .viewseg { position: absolute; right: 10px; top: 10px; background: var(--panel); }
+.stage .err { position: absolute; inset: 0; display: grid; place-items: center; padding: 20px; text-align: center; color: var(--muted); }
+
+.specs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
+@media (max-width: 520px) { .specs { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.spec { background: var(--panel); padding: 8px 10px; display: grid; gap: 2px; }
+.spec span { font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+.spec b { font-family: var(--mono); font-weight: 600; font-size: .9rem; font-variant-numeric: tabular-nums; }
+
+.summary { font-size: .88rem; display: flex; gap: 8px; align-items: center; }
+.summary::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); flex: none; }
+
+.actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.btn { font-family: var(--display); font-weight: 600; font-size: 1.05rem; letter-spacing: .08em; text-transform: uppercase; border: 2px solid var(--ink); background: var(--bin); color: #1C1C1A; padding: 10px 18px; border-radius: 3px; cursor: pointer; }
+.btn:hover { background: var(--bin-deep); }
+.btn.ghost { background: transparent; color: var(--ink); }
+.btn.ghost:hover { background: var(--stage); }
+.btn:disabled { opacity: .4; cursor: not-allowed; }
+.btn.small { font-size: .85rem; padding: 6px 10px; border-width: 1px; }
+.status { font-size: .85rem; color: var(--muted); min-height: 1.2em; }
+.copybox { width: 100%; font-family: var(--mono); font-size: .75rem; min-height: 120px; background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 3px; padding: 8px; }
+
+button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visible { outline: 2px solid var(--bin-deep); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <h1>Storehouse Bin Builder</h1>
+      <p>Custom bins for Harbor Freight Storehouse Medium and Large cases.</p>
+    </div>
+    <div class="code-plate">
+      <div class="code" id="code">M-1x2</div>
+      <div class="code-meta" id="codeMeta"></div>
+    </div>
+  </header>
+
+  <div class="main">
+    <div class="rail">
+      <section class="group" aria-labelledby="h-case">
+        <h2 id="h-case">Case</h2>
+        <div class="seg" role="group" aria-label="Case">
+          <button type="button" id="case-M" data-case="M">Medium<small>20-bin · 50 mm</small></button>
+          <button type="button" id="case-L" data-case="L">Large<small>8-bin · 94 mm</small></button>
+        </div>
+      </section>
+
+      <section class="group" aria-labelledby="h-layout">
+        <h2 id="h-layout">Layout <small>drag empty cells to draw · drag a bin to move it</small></h2>
+        <svg class="floor" id="floor" viewBox="-14 -14 428 330" role="img" aria-label="Case floor grid. Drag on empty cells to draw a bin. Drag a bin to move it."></svg>
+        <div class="toolbar" id="presets"></div>
+        <div class="toolbar">
+          <span class="lbl">Start from</span>
+          <button type="button" class="chip quiet" id="stockLayout">Stock layout</button>
+          <button type="button" class="chip quiet" id="clearAll">Empty case</button>
+        </div>
+        <ol class="binlist" id="binlist" aria-label="Bins"></ol>
+        <p class="empty-note full-note" id="fullNote" hidden>The case is full. Delete a bin, or pick <b>Empty case</b>, to draw new ones.</p>
+        <p class="empty-note" id="emptyNote" hidden>No bins yet. Drag across empty cells to draw one.</p>
+      </section>
+
+      <section class="group" id="binGroup" aria-labelledby="h-bin">
+        <h2 id="h-bin">Selected bin <small id="binWhich"></small></h2>
+        <div class="size-row">
+          <div class="stepper">
+            <label for="w-out">W · 54 mm cells</label>
+            <div class="ctl"><button type="button" id="w-minus" aria-label="Fewer W cells">−</button><output id="w-out">1</output><button type="button" id="w-plus" aria-label="More W cells">+</button></div>
+          </div>
+          <div class="stepper">
+            <label for="n-out">N · 40 mm cells</label>
+            <div class="ctl"><button type="button" id="n-minus" aria-label="Fewer N cells">−</button><output id="n-out">2</output><button type="button" id="n-plus" aria-label="More N cells">+</button></div>
+          </div>
+        </div>
+
+        <p class="sub">Height</p>
+        <div class="seg" role="group" aria-label="Height">
+          <button type="button" id="ht-full" data-ht="full">Full</button>
+          <button type="button" id="ht-half" data-ht="half">Half</button>
+          <button type="button" id="ht-custom" data-ht="custom">Custom</button>
+        </div>
+        <div class="field" id="customHField" hidden>
+          <label for="customH">Height</label><span class="val" id="customH-v"></span>
+          <input type="range" id="customH" min="12" max="94" step="1">
+        </div>
+
+        <p class="sub">Dividers</p>
+        <div class="field">
+          <label for="divW">Splits across W</label><span class="val" id="divW-v"></span>
+          <input type="range" id="divW" min="1" max="8" step="1">
+        </div>
+        <div class="field">
+          <label for="divN">Splits across N</label><span class="val" id="divN-v"></span>
+          <input type="range" id="divN" min="1" max="10" step="1">
+        </div>
+        <div class="field">
+          <label for="divPct">Divider height</label><span class="val" id="divPct-v"></span>
+          <input type="range" id="divPct" min="20" max="100" step="5">
+        </div>
+
+        <p class="sub">Feet</p>
+        <div class="seg" role="group" aria-label="Feet">
+          <button type="button" id="feet-corners" data-feet="corners">Corners</button>
+          <button type="button" id="feet-edge" data-feet="edge">Every edge cell</button>
+          <button type="button" id="feet-none" data-feet="none">None</button>
+        </div>
+
+        <div class="toolbar">
+          <button type="button" class="btn ghost small" id="applyAll">Use these options on all bins</button>
+          <button type="button" class="btn ghost small" id="delSel">Delete bin</button>
+        </div>
+      </section>
+
+      <details class="group" id="advGroup">
+        <summary>Fit and print</summary>
+        <div class="adv">
+          <div class="field"><label for="wall">Wall</label><input type="number" id="wall" step="0.1" min="0.8" max="4"></div>
+          <div class="field"><label for="floorT">Floor</label><input type="number" id="floorT" step="0.1" min="0.8" max="4"></div>
+          <div class="field"><label for="cornerR">Corner radius</label><input type="number" id="cornerR" step="0.5" min="0.5" max="10"></div>
+          <div class="field"><label for="draft">Taper per side (°)</label><input type="number" id="draft" step="0.1" min="0" max="4"></div>
+          <div class="field"><label for="clearance">Clearance per side</label><input type="number" id="clearance" step="0.05" min="0" max="2"></div>
+          <div class="field"><label for="pitchW">W cell</label><input type="number" id="pitchW" step="0.5" min="30" max="80"></div>
+          <div class="field"><label for="pitchN">N cell</label><input type="number" id="pitchN" step="0.5" min="30" max="80"></div>
+          <div class="field"><label for="hM">Medium case height</label><input type="number" id="hM" step="0.5" min="20" max="120"></div>
+          <div class="field"><label for="hL">Large case height</label><input type="number" id="hL" step="0.5" min="20" max="140"></div>
+          <div class="field"><label for="footD">Foot diameter</label><input type="number" id="footD" step="0.5" min="2" max="12"></div>
+          <div class="field"><label for="footH">Foot height</label><input type="number" id="footH" step="0.1" min="0.4" max="5"></div>
+          <button type="button" class="btn ghost small" id="resetAdv">Reset to measured</button>
+        </div>
+      </details>
+    </div>
+
+    <div class="stage-col">
+      <div class="stage" id="stage">
+        <div class="seg viewseg" role="group" aria-label="3D view">
+          <button type="button" id="view-case" data-view="case">Whole case</button>
+          <button type="button" id="view-bin" data-view="bin">Selected bin</button>
+        </div>
+        <span class="tag">drag to orbit · scroll to zoom</span>
+      </div>
+      <div class="specs" id="specs"></div>
+      <div class="summary" id="summary"></div>
+      <div class="actions">
+        <button type="button" class="btn" id="dlAll">Download all bins</button>
+        <button type="button" class="btn ghost" id="dlOne">Download selected</button>
+        <button type="button" class="btn ghost" id="copyScad">Copy OpenSCAD settings</button>
+      </div>
+      <div class="status" id="status" role="status"></div>
+      <textarea class="copybox" id="copyFallback" readonly hidden aria-label="OpenSCAD settings"></textarea>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  // ================================================================ state
+  var MEASURED = { wall: 1.6, floorT: 1.6, cornerR: 3, draft: 1.5, clearance: 0.25, pitchW: 54, pitchN: 40, hM: 50, hL: 94, footD: 5, footH: 1.6 };
+  var BIN_OPTS = { ht: "full", customH: 30, divW: 1, divN: 1, divPct: 100, feet: "corners" };
+  var ADV_KEYS = Object.keys(MEASURED);
+  var FOOT_INSET = 4;
+  var nextId = 1;
+
+  function newBin(zone, c, r, w, n, opts) {
+    return Object.assign({ id: nextId++, zone: zone, c: c, r: r, w: w, n: n }, BIN_OPTS, opts || {});
+  }
+
+  var S = Object.assign({ caseType: "M", view: "case", bins: [], selId: null }, MEASURED);
+  try {
+    var saved = JSON.parse(localStorage.getItem("sbb-state-v3") || "null");
+    if (saved && typeof saved === "object") {
+      if (Array.isArray(saved.bins)) {
+        S = Object.assign(S, saved);
+        S.bins.forEach(function (b) { nextId = Math.max(nextId, b.id + 1); });
+      } else { // older single-bin save
+        ADV_KEYS.concat(["caseType"]).forEach(function (k) { if (k in saved) S[k] = saved[k]; });
+        var sel = saved.sel || { zone: "main", c: 0, r: 0 };
+        var b0 = newBin(sel.zone || "main", sel.c || 0, sel.r || 0, saved.w || 1, saved.n || 2,
+          { ht: saved.ht || "full", customH: saved.customH || 30, divW: saved.divW || 1, divN: saved.divN || 1, divPct: saved.divPct || 100, feet: saved.feet || "corners" });
+        S.bins = [b0]; S.selId = b0.id;
+      }
+    }
+  } catch (e) {}
+  function persist() { try { localStorage.setItem("sbb-state-v3", JSON.stringify(S)); } catch (e) {} }
+
+  var $ = function (id) { return document.getElementById(id); };
+  function sel() { for (var i = 0; i < S.bins.length; i++) if (S.bins[i].id === S.selId) return S.bins[i]; return null; }
+  function idx(b) { return S.bins.indexOf(b) + 1; }
+  var status = $("status");
+  function say(t) { status.textContent = t; }
+
+  // ================================================================ floor grid
+  // Long axis: 10 N cells. Main block: 4 W rows. Handle strip: 2 N rows, a 2-cell (W) pocket each end.
+  var MAP = { mainCols: 10, mainRows: 4, cw: 40, rh: 54, stripRows: 2, zoneCols: 2 };
+  var MAIN_H = MAP.mainRows * MAP.rh, STRIP_H = MAP.stripRows * MAP.cw, FLOOR_W = MAP.mainCols * MAP.cw, ZONE_W = MAP.zoneCols * MAP.rh;
+  var zones = {
+    main:  { x0: 0, y0: 0, cols: MAP.mainCols, rows: MAP.mainRows, cw: MAP.cw, rh: MAP.rh, colIs: "n" },
+    left:  { x0: 0, y0: MAIN_H, cols: MAP.zoneCols, rows: MAP.stripRows, cw: MAP.rh, rh: MAP.cw, colIs: "w" },
+    right: { x0: FLOOR_W - ZONE_W, y0: MAIN_H, cols: MAP.zoneCols, rows: MAP.stripRows, cw: MAP.rh, rh: MAP.cw, colIs: "w" }
+  };
+  function span(zone, w, n) { var z = zones[zone]; return z.colIs === "n" ? { cols: n, rows: w } : { cols: w, rows: n }; }
+  function sizeFromSpan(zone, cols, rows) { return zones[zone].colIs === "n" ? { w: rows, n: cols } : { w: cols, n: rows }; }
+  function inBounds(zone, c, r, w, n) { var z = zones[zone], s = span(zone, w, n); return c >= 0 && r >= 0 && c + s.cols <= z.cols && r + s.rows <= z.rows; }
+  function collides(zone, c, r, w, n, exceptId) {
+    var s = span(zone, w, n);
+    return S.bins.some(function (b) {
+      if (b.id === exceptId || b.zone !== zone) return false;
+      var t = span(b.zone, b.w, b.n);
+      return c < b.c + t.cols && b.c < c + s.cols && r < b.r + t.rows && b.r < r + s.rows;
+    });
+  }
+  function canPlace(zone, c, r, w, n, exceptId) { return inBounds(zone, c, r, w, n) && !collides(zone, c, r, w, n, exceptId); }
+  function findSpot(w, n, exceptId) {
+    var order = ["main", "left", "right"];
+    for (var i = 0; i < order.length; i++) {
+      var z = zones[order[i]];
+      for (var r = 0; r < z.rows; r++) for (var c = 0; c < z.cols; c++) if (canPlace(order[i], c, r, w, n, exceptId)) return { zone: order[i], c: c, r: r };
+    }
+    return null;
+  }
+  function binAt(zone, c, r) {
+    for (var i = 0; i < S.bins.length; i++) {
+      var b = S.bins[i]; if (b.zone !== zone) continue;
+      var t = span(zone, b.w, b.n);
+      if (c >= b.c && c < b.c + t.cols && r >= b.r && r < b.r + t.rows) return b;
+    }
+    return null;
+  }
+  function usedCells() { return S.bins.reduce(function (s, b) { return s + b.w * b.n; }, 0); }
+  var TOTAL_CELLS = MAP.mainCols * MAP.mainRows + 2 * MAP.zoneCols * MAP.stripRows;
+
+  var svgNS = "http://www.w3.org/2000/svg", floor = $("floor"), binG, cellEls = [];
+  function el(tag, attrs, parent) { var e = document.createElementNS(svgNS, tag); for (var k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; }
+  function drawFloor() {
+    floor.innerHTML = ""; cellEls = [];
+    el("rect", { x: -8, y: -8, width: FLOOR_W + 16, height: MAIN_H + STRIP_H + 16, rx: 6, style: "fill:var(--case)" }, floor);
+    var hx = ZONE_W, hw = FLOOR_W - 2 * ZONE_W;
+    var defs = el("defs", {}, floor);
+    var pat = el("pattern", { id: "hatch", width: 6, height: 6, patternUnits: "userSpaceOnUse", patternTransform: "rotate(45)" }, defs);
+    el("rect", { width: 6, height: 6, style: "fill:var(--case)" }, pat);
+    el("line", { x1: 0, y1: 0, x2: 0, y2: 6, style: "stroke:var(--case-line)", "stroke-width": 2 }, pat);
+    el("rect", { x: hx + 4, y: MAIN_H + 4, width: hw - 8, height: STRIP_H - 4, rx: 4, fill: "url(#hatch)", style: "stroke:var(--case-line)" }, floor);
+    el("text", { x: hx + hw / 2, y: MAIN_H + STRIP_H / 2 + 4, "text-anchor": "middle", class: "axis" }, floor).textContent = "HANDLE";
+    Object.keys(zones).forEach(function (zk) {
+      var z = zones[zk];
+      for (var r = 0; r < z.rows; r++) for (var c = 0; c < z.cols; c++)
+        cellEls.push(el("rect", { x: z.x0 + c * z.cw, y: z.y0 + r * z.rh, width: z.cw, height: z.rh, class: "cell", "data-zone": zk, "data-c": c, "data-r": r }, floor));
+    });
+    var pg = el("g", {}, floor);
+    for (var r2 = 0; r2 <= MAP.mainRows; r2++) for (var c2 = 0; c2 <= MAP.mainCols; c2++) el("circle", { cx: c2 * MAP.cw, cy: r2 * MAP.rh, r: 10, class: "pocket" }, pg);
+    ["left", "right"].forEach(function (zk) {
+      var z = zones[zk];
+      for (var r3 = 1; r3 <= z.rows; r3++) for (var c3 = 0; c3 <= z.cols; c3++) el("circle", { cx: z.x0 + c3 * z.cw, cy: z.y0 + r3 * z.rh, r: 10, class: "pocket" }, pg);
+    });
+    el("text", { x: FLOOR_W / 2, y: -10.5, "text-anchor": "middle", class: "axis" }, floor).textContent = "N cells · 40 mm";
+    el("text", { x: -10, y: MAIN_H / 2, "text-anchor": "middle", class: "axis", transform: "rotate(-90 -10 " + MAIN_H / 2 + ")" }, floor).textContent = "W · 54";
+    binG = el("g", {}, floor);
+  }
+  function binRect(b) {
+    var z = zones[b.zone], s = span(b.zone, b.w, b.n);
+    return { x: z.x0 + b.c * z.cw, y: z.y0 + b.r * z.rh, w: s.cols * z.cw, h: s.rows * z.rh };
+  }
+  function drawBins() {
+    binG.innerHTML = "";
+    cellEls.forEach(function (ce) { ce.classList.toggle("taken", !!binAt(ce.getAttribute("data-zone"), +ce.getAttribute("data-c"), +ce.getAttribute("data-r"))); });
+    var on = sel();
+    S.bins.forEach(function (b) { if (b !== on) drawOne(b, false); });
+    if (on) drawOne(on, true);
+  }
+  function drawOne(b, isOn) {
+    var R = binRect(b);
+    el("rect", { x: R.x + 2.5, y: R.y + 2.5, width: R.w - 5, height: R.h - 5, rx: 3, class: "bin" + (isOn ? " on" : "") }, binG);
+    el("text", { x: R.x + R.w / 2, y: R.y + R.h / 2 + 6, "text-anchor": "middle", class: "bin-num" }, binG).textContent = idx(b);
+  }
+
+  // drawing and moving
+  var drag = null;
+  function cellAt(evt) {
+    var t = document.elementFromPoint(evt.clientX, evt.clientY);
+    if (!t || !t.classList || !t.classList.contains("cell")) return null;
+    return { zone: t.getAttribute("data-zone"), c: +t.getAttribute("data-c"), r: +t.getAttribute("data-r") };
+  }
+  floor.addEventListener("pointerdown", function (e) {
+    var c = cellAt(e); if (!c) return;
+    e.preventDefault();
+    var hit = binAt(c.zone, c.c, c.r);
+    if (hit) {
+      S.selId = hit.id;
+      drag = { mode: "move", id: hit.id, offC: c.c - hit.c, offR: c.r - hit.r, zone: hit.zone };
+      update();
+    } else {
+      var base = sel(), opts = {};
+      if (base) ["ht", "customH", "feet"].forEach(function (k) { opts[k] = base[k]; });
+      var nb = newBin(c.zone, c.c, c.r, 1, 1, opts);
+      S.bins.push(nb); S.selId = nb.id;
+      drag = { mode: "draw", id: nb.id, start: c };
+      update();
+    }
+  });
+  window.addEventListener("pointermove", function (e) {
+    if (!drag) return;
+    var c = cellAt(e); if (!c) return;
+    var b = sel(); if (!b || b.id !== drag.id) return;
+    if (drag.mode === "draw") {
+      if (c.zone !== drag.start.zone) return;
+      var c0 = Math.min(c.c, drag.start.c), c1 = Math.max(c.c, drag.start.c), r0 = Math.min(c.r, drag.start.r), r1 = Math.max(c.r, drag.start.r);
+      var sz = sizeFromSpan(c.zone, c1 - c0 + 1, r1 - r0 + 1);
+      if ((b.c !== c0 || b.r !== r0 || b.w !== sz.w || b.n !== sz.n) && canPlace(c.zone, c0, r0, sz.w, sz.n, b.id)) {
+        b.c = c0; b.r = r0; b.w = sz.w; b.n = sz.n; update(false);
+      }
+    } else {
+      var offC = c.zone === drag.zone ? drag.offC : 0, offR = c.zone === drag.zone ? drag.offR : 0;
+      var nc = c.c - offC, nr = c.r - offR;
+      if ((b.zone !== c.zone || b.c !== nc || b.r !== nr) && canPlace(c.zone, nc, nr, b.w, b.n, b.id)) {
+        b.zone = c.zone; b.c = nc; b.r = nr; update(false);
+      }
+    }
+  });
+  window.addEventListener("pointerup", function () { if (drag) { drag = null; update(); } });
+
+  // ================================================================ bin geometry
+  function dims(b) {
+    var bx = b.w * S.pitchW - 2 * S.clearance, by = b.n * S.pitchN - 2 * S.clearance;
+    var full = S.caseType === "L" ? S.hL : S.hM;
+    var h = b.ht === "half" ? full / 2 : b.ht === "custom" ? Math.min(b.customH, full) : full;
+    var zb = b.feet !== "none" ? S.footH : 0, bodyH = h - zb;
+    return { bx: bx, by: by, h: h, full: full, zb: zb, zt: h, bodyH: bodyH, ins: bodyH * Math.tan(S.draft * Math.PI / 180), zf: zb + S.floorT };
+  }
+  function outerAt(D, z) { var k = 1 - (z - D.zb) / D.bodyH; return { x: D.bx - 2 * D.ins * k, y: D.by - 2 * D.ins * k }; }
+  function innerAt(D, z) { var o = outerAt(D, z); return { x: o.x - 2 * S.wall, y: o.y - 2 * S.wall }; }
+
+  function ring(w, h, r, z, seg) {
+    r = Math.max(0.3, Math.min(r, w / 2 - 0.05, h / 2 - 0.05));
+    var pts = [], cx = w / 2 - r, cy = h / 2 - r;
+    [[cx, -cy, -90], [cx, cy, 0], [-cx, cy, 90], [-cx, -cy, 180]].forEach(function (cr) {
+      for (var i = 0; i <= seg; i++) { var a = (cr[2] + 90 * i / seg) * Math.PI / 180; pts.push([cr[0] + r * Math.cos(a), cr[1] + r * Math.sin(a), z]); }
+    });
+    return pts;
+  }
+  function strip(tris, a, b) { var n = a.length; for (var i = 0; i < n; i++) { var j = (i + 1) % n; tris.push([a[i], a[j], b[j]], [a[i], b[j], b[i]]); } }
+  function cap(tris, p, up) {
+    var c = [0, 0, 0]; p.forEach(function (q) { c[0] += q[0]; c[1] += q[1]; c[2] += q[2]; });
+    c = c.map(function (v) { return v / p.length; });
+    for (var i = 0; i < p.length; i++) { var j = (i + 1) % p.length; tris.push(up ? [c, p[i], p[j]] : [c, p[j], p[i]]); }
+  }
+  function signedVol(tris) {
+    var v = 0;
+    tris.forEach(function (t) { var a = t[0], b = t[1], c = t[2]; v += a[0] * (b[1] * c[2] - b[2] * c[1]) - a[1] * (b[0] * c[2] - b[2] * c[0]) + a[2] * (b[0] * c[1] - b[1] * c[0]); });
+    return v / 6;
+  }
+  function solid(tris) { if (signedVol(tris) < 0) tris.forEach(function (t) { var s = t[1]; t[1] = t[2]; t[2] = s; }); return tris; }
+  function hexa(v) {
+    var F = [[0,2,1],[0,3,2],[4,5,6],[4,6,7],[0,1,5],[0,5,4],[1,2,6],[1,6,5],[2,3,7],[2,7,6],[3,0,4],[3,4,7]];
+    return solid(F.map(function (f) { return [v[f[0]], v[f[1]], v[f[2]]]; }));
+  }
+  function cylinder(x, y, z0, z1, d, seg) {
+    var t = [], r = d / 2, bot = [], top = [];
+    for (var i = 0; i < seg; i++) { var a = 2 * Math.PI * i / seg; bot.push([x + r * Math.cos(a), y + r * Math.sin(a), z0]); top.push([x + r * Math.cos(a), y + r * Math.sin(a), z1]); }
+    strip(t, bot, top); cap(t, top, true); cap(t, bot, false);
+    return solid(t);
+  }
+
+  function buildBin(b) {
+    var D = dims(b), seg = 8, parts = [], r = S.cornerR;
+    var ob = outerAt(D, D.zb), it = innerAt(D, D.zt), ifl = innerAt(D, D.zf);
+    var sh = [];
+    var O0 = ring(ob.x, ob.y, r - D.ins, D.zb, seg), O1 = ring(D.bx, D.by, r, D.zt, seg);
+    var I1 = ring(it.x, it.y, r - S.wall, D.zt, seg), I0 = ring(ifl.x, ifl.y, r - S.wall - D.ins, D.zf, seg);
+    strip(sh, O0, O1); strip(sh, O1, I1); strip(sh, I1, I0); cap(sh, I0, true); cap(sh, O0, false);
+    parts.push(solid(sh));
+
+    var ov = S.wall * 0.7, tt = 1.2;
+    var z0 = D.zf - 0.05, z1 = D.zf + (D.zt - D.zf) * b.divPct / 100;
+    var a = innerAt(D, z0), bb = innerAt(D, z1);
+    for (var i = 1; i < b.divW; i++) {
+      var f = i / b.divW - 0.5, xa = f * a.x, xb = f * bb.x, ya = a.y / 2 + ov, yb = bb.y / 2 + ov;
+      parts.push(hexa([[xa - tt/2, -ya, z0], [xa + tt/2, -ya, z0], [xa + tt/2, ya, z0], [xa - tt/2, ya, z0],
+                       [xb - tt/2, -yb, z1], [xb + tt/2, -yb, z1], [xb + tt/2, yb, z1], [xb - tt/2, yb, z1]]));
+    }
+    for (var j = 1; j < b.divN; j++) {
+      var g = j / b.divN - 0.5, y0 = g * a.y, y1 = g * bb.y, x0 = a.x / 2 + ov, x1 = bb.x / 2 + ov;
+      parts.push(hexa([[-x0, y0 - tt/2, z0], [x0, y0 - tt/2, z0], [x0, y0 + tt/2, z0], [-x0, y0 + tt/2, z0],
+                       [-x1, y1 - tt/2, z1], [x1, y1 - tt/2, z1], [x1, y1 + tt/2, z1], [-x1, y1 + tt/2, z1]]));
+    }
+    if (b.feet !== "none") {
+      var bxH = ob.x / 2 - FOOT_INSET, byH = ob.y / 2 - FOOT_INSET, pts = [];
+      if (b.feet === "corners") pts = [[-bxH, -byH], [bxH, -byH], [bxH, byH], [-bxH, byH]];
+      else {
+        var xs = [-bxH], ys = [-byH];
+        for (var k = 1; k < b.w; k++) xs.push(-ob.x / 2 + k * ob.x / b.w);
+        for (var m = 1; m < b.n; m++) ys.push(-ob.y / 2 + m * ob.y / b.n);
+        xs.push(bxH); ys.push(byH);
+        xs.forEach(function (x) { pts.push([x, -byH], [x, byH]); });
+        ys.slice(1, -1).forEach(function (y) { pts.push([-bxH, y], [bxH, y]); });
+      }
+      pts.forEach(function (p) { parts.push(cylinder(p[0], p[1], 0, D.zb + 0.4, S.footD, 24)); });
+    }
+    var all = []; parts.forEach(function (p) { Array.prototype.push.apply(all, p); });
+    return all;
+  }
+
+  // ================================================================ names and export
+  function codeOf(b) { return S.caseType + "-" + b.w + "x" + b.n + (b.ht === "half" ? "-half" : b.ht === "custom" ? "-" + Math.round(dims(b).h) + "mm" : ""); }
+  function fileStem(b) {
+    var s = codeOf(b);
+    if (b.divW > 1 || b.divN > 1) s += "-div" + b.divW + "x" + b.divN + (b.divPct < 100 ? "-" + b.divPct + "pct" : "");
+    if (b.feet === "none") s += "-nofeet"; else if (b.feet === "edge") s += "-edgefeet";
+    return s;
+  }
+  function describe(b) {
+    var bits = [];
+    var D = dims(b);
+    bits.push(b.ht === "full" ? "full height" : b.ht === "half" ? "half height" : Math.round(D.h) + " mm tall");
+    if (b.divW > 1 || b.divN > 1) bits.push(b.divW * b.divN + " sections");
+    if (b.feet !== "corners") bits.push(b.feet === "none" ? "no feet" : "edge feet");
+    if (b.zone !== "main") bits.push("handle pocket");
+    return bits.join(" · ");
+  }
+  function toSTL(tris, label) {
+    var buf = new ArrayBuffer(84 + tris.length * 50), dv = new DataView(buf);
+    var head = "Storehouse bin " + label;
+    for (var i = 0; i < head.length && i < 80; i++) dv.setUint8(i, head.charCodeAt(i));
+    dv.setUint32(80, tris.length, true);
+    var o = 84;
+    tris.forEach(function (t) {
+      var a = t[0], b = t[1], c = t[2];
+      var ux = b[0]-a[0], uy = b[1]-a[1], uz = b[2]-a[2], vx = c[0]-a[0], vy = c[1]-a[1], vz = c[2]-a[2];
+      var nx = uy*vz - uz*vy, ny = uz*vx - ux*vz, nz = ux*vy - uy*vx, l = Math.hypot(nx, ny, nz) || 1;
+      [nx/l, ny/l, nz/l].concat(a, b, c).forEach(function (v) { dv.setFloat32(o, v, true); o += 4; });
+      dv.setUint16(o, 0, true); o += 2;
+    });
+    return new Uint8Array(buf);
+  }
+  var CRC = (function () { var t = []; for (var n = 0; n < 256; n++) { var c = n; for (var k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+  function crc32(u8) { var c = 0xFFFFFFFF; for (var i = 0; i < u8.length; i++) c = CRC[(c ^ u8[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+  function zip(files) {
+    var enc = new TextEncoder(), locals = [], central = [], offset = 0;
+    files.forEach(function (f) {
+      var name = enc.encode(f.name), data = typeof f.data === "string" ? enc.encode(f.data) : f.data, crc = crc32(data), size = data.length;
+      var lh = new DataView(new ArrayBuffer(30));
+      lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint32(14, crc, true); lh.setUint32(18, size, true); lh.setUint32(22, size, true); lh.setUint16(26, name.length, true);
+      locals.push(new Uint8Array(lh.buffer), name, data);
+      var ch = new DataView(new ArrayBuffer(46));
+      ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true); ch.setUint32(16, crc, true); ch.setUint32(20, size, true); ch.setUint32(24, size, true); ch.setUint16(28, name.length, true); ch.setUint32(42, offset, true);
+      central.push(new Uint8Array(ch.buffer), name);
+      offset += 30 + name.length + size;
+    });
+    var cSize = central.reduce(function (s, a) { return s + a.length; }, 0);
+    var end = new DataView(new ArrayBuffer(22));
+    end.setUint32(0, 0x06054b50, true); end.setUint16(8, files.length, true); end.setUint16(10, files.length, true); end.setUint32(12, cSize, true); end.setUint32(16, offset, true);
+    return new Blob(locals.concat(central, [new Uint8Array(end.buffer)]), { type: "application/zip" });
+  }
+  function groups(list) {
+    var map = {}, order = [];
+    list.forEach(function (b) { var k = fileStem(b); if (!map[k]) { map[k] = { stem: k, bin: b, nums: [] }; order.push(k); } map[k].nums.push(idx(b)); });
+    return order.map(function (k) { return map[k]; });
+  }
+  function layoutText(list) {
+    var lines = ["Storehouse " + (S.caseType === "M" ? "Medium" : "Large") + " case layout", list.length + " bins, " + usedCells() + " of " + TOTAL_CELLS + " cells used", ""];
+    groups(list).forEach(function (g) {
+      lines.push(g.stem + (g.nums.length > 1 ? "-x" + g.nums.length : "") + ".stl  print " + g.nums.length + "  (bins " + g.nums.join(", ") + ")");
+    });
+    lines.push("", "Cell " + S.pitchW + " x " + S.pitchN + " mm (W x N). Clearance " + S.clearance + " mm per side. Wall " + S.wall + " mm.");
+    return lines.join("\n");
+  }
+  var downloadsP = (window.claude && window.claude.use) ? window.claude.use("downloads").catch(function () { return null; }) : Promise.resolve(null);
+  function save(filename, blob, doneMsg) {
+    say("Preparing " + filename + "…");
+    downloadsP.then(function (dl) {
+      if (!dl) { // plain browser (GitHub Pages, local file): normal download link
+        try {
+          var url = URL.createObjectURL(blob), a = document.createElement("a");
+          a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+          setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+          say(doneMsg);
+        } catch (e) { say("Couldn't start the download in this browser."); }
+        return;
+      }
+      return dl.save({ filename: filename, data: blob }).then(function () { say(doneMsg); }, function (err) {
+        var c = err && err.code;
+        say(c === "declined" ? "Download canceled." : c === "rate_limited" ? "A save prompt is already open. Finish that one first." : "Couldn't save the file here (" + (c || "error") + ").");
+      });
+    });
+  }
+  $("dlAll").addEventListener("click", function () {
+    if (!S.bins.length) return;
+    var gs = groups(S.bins);
+    var files = gs.map(function (g) { return { name: g.stem + (g.nums.length > 1 ? "-x" + g.nums.length : "") + ".stl", data: toSTL(buildBin(g.bin), g.stem) }; });
+    files.push({ name: "layout.txt", data: layoutText(S.bins) });
+    var name = "storehouse-" + S.caseType + "-layout-" + S.bins.length + "-bins.zip";
+    save(name, zip(files), "Saved " + name + ": " + gs.length + " STL file" + (gs.length > 1 ? "s" : "") + " for " + S.bins.length + " bins, plus layout.txt.");
+  });
+  $("dlOne").addEventListener("click", function () {
+    var b = sel(); if (!b) return;
+    var stem = "storehouse-" + fileStem(b);
+    save(stem + ".zip", zip([{ name: stem + ".stl", data: toSTL(buildBin(b), fileStem(b)) }]), "Saved " + stem + ".zip. Unzip it for the STL.");
+  });
+
+  // ================================================================ 3D view
+  var three = null, geoCache = {};
+  function initThree() {
+    var stage = $("stage");
+    if (!window.THREE || !THREE.OrbitControls) {
+      var d = document.createElement("div"); d.className = "err"; d.textContent = "3D preview couldn't load. Layout and downloads still work.";
+      stage.appendChild(d); return;
+    }
+    var renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    stage.insertBefore(renderer.domElement, stage.firstChild);
+    var scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(35, 4 / 3, 1, 6000);
+    var controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true; controls.dampingFactor = 0.12;
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x6b6450, 0.85));
+    var key = new THREE.DirectionalLight(0xffffff, 0.75); key.position.set(160, 300, 220); scene.add(key);
+    var fill = new THREE.DirectionalLight(0xffffff, 0.25); fill.position.set(-220, 90, -140); scene.add(fill);
+    var world = new THREE.Group(); scene.add(world);
+    var plate = new THREE.Mesh(new THREE.BoxGeometry(FLOOR_W + 16, 3, MAIN_H + STRIP_H + 16), new THREE.MeshStandardMaterial({ color: 0x232321, roughness: 0.8 }));
+    plate.position.y = -1.6; scene.add(plate);
+    var handle = new THREE.Mesh(new THREE.BoxGeometry(FLOOR_W - 2 * ZONE_W - 8, 14, STRIP_H - 6), new THREE.MeshStandardMaterial({ color: 0x1a1a19, roughness: 0.7 }));
+    handle.position.set(0, 7, MAIN_H + STRIP_H / 2 - (MAIN_H + STRIP_H) / 2 + 1); scene.add(handle);
+    var grid = new THREE.GridHelper(700, 35, 0x888888, 0x888888); grid.material.transparent = true; grid.material.opacity = 0.14; grid.position.y = -3.2; scene.add(grid);
+    three = {
+      renderer: renderer, scene: scene, camera: camera, controls: controls, world: world, plate: plate, handle: handle,
+      matOn: new THREE.MeshStandardMaterial({ color: 0xF2B200, roughness: 0.55, flatShading: true }),
+      matOff: new THREE.MeshStandardMaterial({ color: 0xC7A55A, roughness: 0.7, flatShading: true }),
+      lineMat: new THREE.LineBasicMaterial({ color: 0x5a4300, transparent: true, opacity: 0.45 })
+    };
+    function resize() { var w = stage.clientWidth, h = stage.clientHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+    new ResizeObserver(resize).observe(stage); resize();
+    (function loop() { requestAnimationFrame(loop); controls.update(); renderer.render(scene, camera); })();
+  }
+  function geoFor(b) {
+    var k = JSON.stringify([fileStem(b), ADV_KEYS.map(function (q) { return S[q]; })]);
+    if (!geoCache[k]) {
+      var tris = buildBin(b), pos = new Float32Array(tris.length * 9), o = 0;
+      tris.forEach(function (t) { for (var i = 0; i < 3; i++) { pos[o++] = t[i][0]; pos[o++] = t[i][1]; pos[o++] = t[i][2]; } });
+      var g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(pos, 3)); g.computeVertexNormals();
+      geoCache[k] = { mesh: g, edges: new THREE.EdgesGeometry(g, 35) };
+    }
+    return geoCache[k];
+  }
+  function binObject(b, mat) {
+    var G = geoFor(b), inner = new THREE.Group();
+    inner.rotation.x = -Math.PI / 2;
+    inner.add(new THREE.Mesh(G.mesh, mat), new THREE.LineSegments(G.edges, three.lineMat));
+    var outer = new THREE.Group(); outer.add(inner);
+    return outer;
+  }
+  var lastFrame = "";
+  function show3D() {
+    if (!three) return;
+    while (three.world.children.length) three.world.remove(three.world.children[0]);
+    if (Object.keys(geoCache).length > 120) geoCache = {};
+    var on = sel(), caseView = S.view === "case";
+    three.plate.visible = caseView; three.handle.visible = caseView;
+    var frameKey;
+    if (caseView) {
+      S.bins.forEach(function (b) {
+        var o = binObject(b, b === on ? three.matOn : three.matOff), R = binRect(b);
+        o.position.set(R.x + R.w / 2 - FLOOR_W / 2, 0, R.y + R.h / 2 - (MAIN_H + STRIP_H) / 2);
+        if (b.zone === "main") o.rotation.y = Math.PI / 2;
+        three.world.add(o);
+      });
+      frameKey = "case|" + S.caseType;
+    } else if (on) {
+      three.world.add(binObject(on, three.matOn));
+      frameKey = "bin|" + on.id + "|" + on.w + "x" + on.n + "|" + S.caseType + "|" + on.ht;
+    }
+    if (frameKey && frameKey !== lastFrame) {
+      lastFrame = frameKey;
+      if (caseView) {
+        var hh = S.caseType === "L" ? S.hL : S.hM;
+        three.camera.position.set(170, 330 + hh, 420);
+        three.controls.target.set(0, hh * 0.3, 10);
+      } else {
+        var D = dims(on), sp = Math.max(D.bx, D.by, D.h), dist = sp * 2.4 + 40;
+        three.camera.position.set(dist * 0.62, dist * 0.62, dist * 0.78);
+        three.controls.target.set(0, D.h * 0.4, 0);
+      }
+      three.controls.update();
+    }
+  }
+
+  // ================================================================ UI
+  function f1(v) { return (Math.round(v * 10) / 10).toString(); }
+  var PRESETS = {
+    M: [[1, 1, "small"], [1, 2, "medium"], [2, 2, "big"]],
+    L: [[2, 2, "small"], [2, 4, "large"], [1, 4, "half large"]]
+  };
+  function drawPresets() {
+    var p = $("presets"); p.innerHTML = "";
+    var l = document.createElement("span"); l.className = "lbl"; l.textContent = "Add"; p.appendChild(l);
+    PRESETS[S.caseType].forEach(function (pr) {
+      var b = document.createElement("button"); b.type = "button"; b.className = "chip";
+      b.innerHTML = S.caseType + "-" + pr[0] + "x" + pr[1] + " <span>" + pr[2] + "</span>";
+      b.addEventListener("click", function () {
+        var spot = findSpot(pr[0], pr[1]);
+        if (!spot) { say("No open spot for a " + pr[0] + "x" + pr[1] + ". Move or delete a bin first."); return; }
+        var base = sel(), opts = {};
+        if (base) ["ht", "customH", "feet"].forEach(function (k) { opts[k] = base[k]; });
+        var nb = newBin(spot.zone, spot.c, spot.r, pr[0], pr[1], opts); S.bins.push(nb); S.selId = nb.id; say(""); update();
+      });
+      p.appendChild(b);
+    });
+  }
+  function stockLayout() {
+    var B = [];
+    if (S.caseType === "M") {
+      for (var cc = 0; cc < 8; cc += 2) for (var rr = 0; rr < 4; rr += 2) B.push(["main", cc, rr, 2, 2]);
+      for (var r4 = 0; r4 < 4; r4++) B.push(["main", 8, r4, 1, 2]);
+      ["left", "right"].forEach(function (z) { for (var c5 = 0; c5 < 2; c5++) for (var r5 = 0; r5 < 2; r5++) B.push([z, c5, r5, 1, 1]); });
+    } else {
+      B.push(["main", 0, 0, 2, 4], ["main", 0, 2, 2, 4], ["main", 4, 0, 2, 2], ["main", 4, 2, 2, 2], ["main", 6, 0, 2, 4], ["main", 6, 2, 2, 4]);
+      B.push(["left", 0, 0, 2, 2], ["right", 0, 0, 2, 2]);
+    }
+    S.bins = B.map(function (x) { return newBin(x[0], x[1], x[2], x[3], x[4]); });
+    S.selId = S.bins[0].id;
+  }
+  function setPressed(attr, val) { document.querySelectorAll("[data-" + attr + "]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-" + attr) === val)); }); }
+
+  function drawList() {
+    var ol = $("binlist"); ol.innerHTML = "";
+    S.bins.forEach(function (b) {
+      var li = document.createElement("li"); li.tabIndex = 0; if (b.id === S.selId) li.className = "on";
+      li.innerHTML = '<span class="num">' + idx(b) + '</span><span class="what">' + codeOf(b) + "<small>" + describe(b) + '</small></span><button type="button" class="del" aria-label="Delete bin ' + idx(b) + '">×</button>';
+      li.addEventListener("click", function (e) {
+        if (e.target.classList.contains("del")) { removeBin(b.id); return; }
+        S.selId = b.id; update();
+      });
+      li.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); S.selId = b.id; update(); } });
+      ol.appendChild(li);
+    });
+    $("emptyNote").hidden = S.bins.length > 0;
+  }
+  function removeBin(id) {
+    var i = S.bins.findIndex(function (b) { return b.id === id; }); if (i < 0) return;
+    S.bins.splice(i, 1);
+    if (S.selId === id) S.selId = S.bins.length ? S.bins[Math.min(i, S.bins.length - 1)].id : null;
+    update();
+  }
+
+  function update(fullRedraw) {
+    var b = sel();
+    var D = b ? dims(b) : null;
+    // header
+    var code = $("code");
+    code.textContent = b ? codeOf(b) : "No bin";
+    code.classList.toggle("empty", !b);
+    $("codeMeta").innerHTML = b ? "<span>bin <b>" + idx(b) + "</b> of " + S.bins.length + " · slot <b>" + b.w * S.pitchW + " × " + b.n * S.pitchN + "</b> mm</span><span>" +
+      (S.caseType === "M" ? "Medium case" : "Large case") + " · <b>" + f1(D.h) + "</b> mm tall</span>" : "<span>Draw a bin on the floor grid.</span>";
+    setPressed("case", S.caseType); setPressed("view", S.view);
+    // selected bin panel
+    $("binGroup").classList.toggle("disabled", !b);
+    if (b) {
+      $("binWhich").textContent = "#" + idx(b) + " · " + codeOf(b);
+      $("w-out").textContent = b.w; $("n-out").textContent = b.n;
+      setPressed("ht", b.ht); setPressed("feet", b.feet);
+      $("customHField").hidden = b.ht !== "custom";
+      $("customH").max = D.full; $("customH").value = Math.min(b.customH, D.full); $("customH-v").textContent = f1(Math.min(b.customH, D.full)) + " mm";
+      $("divW").value = b.divW; $("divW-v").textContent = b.divW === 1 ? "none" : b.divW + " sections";
+      $("divN").value = b.divN; $("divN-v").textContent = b.divN === 1 ? "none" : b.divN + " sections";
+      $("divPct").value = b.divPct; $("divPct-v").textContent = b.divPct + "%";
+      var ob = outerAt(D, D.zb), inn = innerAt(D, D.zt);
+      $("specs").innerHTML = [["Top outside", f1(D.bx) + " × " + f1(D.by)], ["Bottom outside", f1(ob.x) + " × " + f1(ob.y)], ["Inside at rim", f1(inn.x) + " × " + f1(inn.y)], ["Height", f1(D.h) + " mm"]]
+        .map(function (s) { return '<div class="spec"><span>' + s[0] + "</span><b>" + s[1] + "</b></div>"; }).join("");
+    } else {
+      $("binWhich").textContent = ""; $("specs").innerHTML = "";
+    }
+    ADV_KEYS.forEach(function (k) { if (document.activeElement !== $(k)) $(k).value = S[k]; });
+    var used = usedCells(), gs = groups(S.bins);
+    var full = used >= TOTAL_CELLS;
+    $("fullNote").hidden = !full;
+    $("summary").textContent = S.bins.length ? S.bins.length + " bin" + (S.bins.length > 1 ? "s" : "") + " · " + used + " of " + TOTAL_CELLS + " cells filled · " + gs.length + " unique STL" + (gs.length > 1 ? "s" : "") : "Empty case.";
+    $("dlAll").disabled = !S.bins.length; $("dlOne").disabled = !b; $("copyScad").disabled = !b;
+    drawBins();
+    if (fullRedraw !== false) { drawList(); drawPresets(); }
+    show3D();
+    persist();
+  }
+
+  // controls
+  document.querySelectorAll("[data-case]").forEach(function (x) { x.addEventListener("click", function () { S.caseType = x.getAttribute("data-case"); update(); }); });
+  document.querySelectorAll("[data-view]").forEach(function (x) { x.addEventListener("click", function () { S.view = x.getAttribute("data-view"); update(); }); });
+  document.querySelectorAll("[data-ht]").forEach(function (x) { x.addEventListener("click", function () { var b = sel(); if (b) { b.ht = x.getAttribute("data-ht"); update(); } }); });
+  document.querySelectorAll("[data-feet]").forEach(function (x) { x.addEventListener("click", function () { var b = sel(); if (b) { b.feet = x.getAttribute("data-feet"); update(); } }); });
+  function resize(dw, dn) {
+    var b = sel(); if (!b) return;
+    var w = b.w + dw, n = b.n + dn;
+    if (w < 1 || n < 1) return;
+    if (canPlace(b.zone, b.c, b.r, w, n, b.id)) { b.w = w; b.n = n; say(""); update(); return; }
+    var spot = findSpot(w, n, b.id);
+    if (spot) { b.zone = spot.zone; b.c = spot.c; b.r = spot.r; b.w = w; b.n = n; say("Moved bin " + idx(b) + " to fit " + w + "x" + n + "."); update(); }
+    else say("No room for a " + w + "x" + n + ". Move or delete a bin first.");
+  }
+  $("w-minus").addEventListener("click", function () { resize(-1, 0); });
+  $("w-plus").addEventListener("click", function () { resize(1, 0); });
+  $("n-minus").addEventListener("click", function () { resize(0, -1); });
+  $("n-plus").addEventListener("click", function () { resize(0, 1); });
+  ["divW", "divN", "divPct", "customH"].forEach(function (k) { $(k).addEventListener("input", function () { var b = sel(); if (b) { b[k] = +$(k).value; update(); } }); });
+  ADV_KEYS.forEach(function (k) {
+    $(k).addEventListener("change", function () {
+      var v = parseFloat($(k).value);
+      if (isFinite(v)) S[k] = Math.min(parseFloat($(k).max), Math.max(parseFloat($(k).min), v));
+      update();
+    });
+  });
+  $("resetAdv").addEventListener("click", function () { Object.assign(S, MEASURED); update(); });
+  $("applyAll").addEventListener("click", function () {
+    var b = sel(); if (!b) return;
+    S.bins.forEach(function (o) { Object.keys(BIN_OPTS).forEach(function (k) { o[k] = b[k]; }); });
+    say("Applied bin " + idx(b) + "'s height, dividers and feet to all " + S.bins.length + " bins."); update();
+  });
+  $("delSel").addEventListener("click", function () { var b = sel(); if (b) removeBin(b.id); });
+  $("stockLayout").addEventListener("click", function () { stockLayout(); say("Loaded the stock " + (S.caseType === "M" ? "Medium" : "Large") + " case layout."); update(); });
+  $("clearAll").addEventListener("click", function () { S.bins = []; S.selId = null; say("Case emptied. Drag on the grid to draw a bin."); update(); });
+  document.addEventListener("keydown", function (e) {
+    if ((e.key === "Delete" || e.key === "Backspace") && !/INPUT|TEXTAREA/.test((document.activeElement || {}).tagName || "")) {
+      var b = sel(); if (b) { e.preventDefault(); removeBin(b.id); }
+    }
+  });
+
+  function scadText(b) {
+    return [
+      "case_type = \"" + S.caseType + "\";", "cells_w = " + b.w + ";", "cells_n = " + b.n + ";",
+      "half_height = " + (b.ht === "half") + ";", "custom_height = " + (b.ht === "custom" ? f1(dims(b).h) : 0) + ";",
+      "div_w = " + b.divW + ";", "div_n = " + b.divN + ";", "divider_height_pct = " + b.divPct + ";",
+      "feet = \"" + (b.feet === "edge" ? "perimeter" : b.feet) + "\";",
+      "pitch_w = " + S.pitchW + ";", "pitch_n = " + S.pitchN + ";", "height_M = " + S.hM + ";", "height_L = " + S.hL + ";",
+      "clearance = " + S.clearance + ";", "wall = " + S.wall + ";", "floor_t = " + S.floorT + ";",
+      "corner_r = " + S.cornerR + ";", "draft_deg = " + S.draft + ";", "foot_d = " + S.footD + ";", "foot_h = " + S.footH + ";"
+    ].join("\n");
+  }
+  $("copyScad").addEventListener("click", function () {
+    var b = sel(); if (!b) return;
+    var txt = scadText(b), box = $("copyFallback");
+    function fallback() { box.hidden = false; box.value = txt; box.focus(); box.select(); say("Select and copy the settings below."); }
+    try { navigator.clipboard.writeText(txt).then(function () { box.hidden = true; say("Bin " + idx(b) + " settings copied. Paste them over the top of storehouse_bin.scad."); }, fallback); }
+    catch (e) { fallback(); }
+  });
+
+  function starter() {
+    S.bins = [newBin("main", 0, 0, 2, 2), newBin("main", 2, 0, 1, 2)];
+    S.selId = S.bins[1].id;
+  }
+  if (!S.bins.length) { try { if (localStorage.getItem("sbb-state-v3") === null) starter(); } catch (e) { starter(); } }
+  drawFloor();
+  initThree();
+  update();
+})();
+</script>
+
+</body>
+</html>
