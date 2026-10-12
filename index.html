@@ -738,8 +738,9 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
   function stockLayout() {
     var B = [];
     if (S.caseType === "M") {
-      for (var cc = 0; cc < 8; cc += 2) for (var rr = 0; rr < 4; rr += 2) B.push(["main", cc, rr, 2, 2]);
-      for (var r4 = 0; r4 < 4; r4++) B.push(["main", 8, r4, 1, 2]);
+      // bigs on both sides, the four mediums in the center lane
+      [0, 2, 6, 8].forEach(function (cc) { for (var rr = 0; rr < 4; rr += 2) B.push(["main", cc, rr, 2, 2]); });
+      for (var r4 = 0; r4 < 4; r4++) B.push(["main", 4, r4, 1, 2]);
       ["left", "right"].forEach(function (z) { for (var c5 = 0; c5 < 2; c5++) for (var r5 = 0; r5 < 2; r5++) B.push([z, c5, r5, 1, 1]); });
     } else {
       B.push(["main", 0, 0, 2, 4], ["main", 0, 2, 2, 4], ["main", 4, 0, 2, 2], ["main", 4, 2, 2, 2], ["main", 6, 0, 2, 4], ["main", 6, 2, 2, 4]);
