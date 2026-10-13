@@ -112,6 +112,8 @@ header { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content:
 .stepper .ctl { display: grid; grid-template-columns: 34px 1fr 34px; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
 .stepper button { font: inherit; font-size: 1.1rem; border: 0; background: transparent; color: var(--ink); cursor: pointer; }
 .stepper button:hover { background: var(--stage); }
+.stepper.inline { grid-template-columns: 14px 1fr; gap: 6px; align-items: center; }
+.stepper.inline label { text-align: center; }
 .stepper output { text-align: center; font-family: var(--mono); font-weight: 600; padding: 6px 0; font-variant-numeric: tabular-nums; border-inline: 1px solid var(--line); }
 
 .field { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 10px; }
@@ -120,6 +122,17 @@ header { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content:
 .field input[type=range] { grid-column: 1 / -1; width: 100%; accent-color: var(--bin-deep); }
 .field input[type=text] { grid-column: 1 / -1; width: 100%; box-sizing: border-box; font: inherit; font-family: var(--mono); font-size: .9rem; text-transform: uppercase; padding: 6px 8px; border: 1px solid var(--line); border-radius: 3px; background: var(--bg); color: var(--ink); }
 .field input[type=number] { width: 84px; font: inherit; font-family: var(--mono); font-size: .85rem; padding: 4px 6px; border: 1px solid var(--line); border-radius: 3px; background: var(--bg); color: var(--ink); }
+.nest { border-left: 2px solid var(--line); padding-left: 12px; display: grid; gap: 10px; }
+.pair { display: grid; grid-template-columns: 96px 1fr; gap: 8px 10px; align-items: center; }
+.row { display: grid; gap: 6px; }
+.row .lab, .pair .lab { font-size: .78rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+details.more summary { cursor: pointer; list-style: none; font-size: .78rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); display: flex; gap: 8px; align-items: baseline; }
+details.more summary::-webkit-details-marker { display: none; }
+details.more summary::before { content: "▸"; font-family: var(--mono); }
+details.more[open] summary::before { content: "▾"; }
+details.more summary small { font-size: .78rem; text-transform: none; letter-spacing: 0; }
+details.more[open] { display: grid; gap: 10px; }
+.stage .lift { position: absolute; left: 10px; top: 10px; margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 5px 10px; font-size: .82rem; }
 .check { display: flex; gap: 8px; align-items: center; font-size: .88rem; margin-top: 10px; cursor: pointer; }
 .check input { accent-color: var(--bin-deep); }
 .sub { font-size: .78rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 4px 0 -4px; }
@@ -213,83 +226,86 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
           </div>
         </div>
 
-        <p class="sub">Stack <span style="text-transform:none;letter-spacing:0">· a bottom bin plus top tray, full case height</span></p>
-        <div class="seg" role="group" aria-label="Stack">
+        <div class="seg" role="group" aria-label="Stack" title="A stacked bin is a shorter bottom bin plus top trays that fill the case height">
           <button type="button" id="stack-off" data-stack="off">Single bin</button>
           <button type="button" id="stack-on" data-stack="on">Stacked</button>
         </div>
-        <div id="stackBox" hidden>
+        <div id="stackBox" class="nest" hidden>
           <div class="field">
             <label for="lowerH">Bottom bin height</label><span class="val" id="lowerH-v"></span>
             <input type="range" id="lowerH" min="15" max="79" step="1">
           </div>
-          <p class="sub" style="margin-top:10px">Top</p>
-          <div class="seg" role="group" aria-label="Top tray split">
-            <button type="button" id="split-1" data-split="1">1 tray</button>
-            <button type="button" id="split-w" data-split="w">2 across W</button>
-            <button type="button" id="split-n" data-split="n">2 across N</button>
-            <button type="button" id="split-4" data-split="4">4 trays</button>
+          <div class="row">
+            <span class="lab">Top</span>
+            <div class="seg" role="group" aria-label="Top tray split">
+              <button type="button" id="split-1" data-split="1">1 tray</button>
+              <button type="button" id="split-w" data-split="w">2 across W</button>
+              <button type="button" id="split-n" data-split="n">2 across N</button>
+              <button type="button" id="split-4" data-split="4">4 trays</button>
+            </div>
           </div>
-          <div class="field" style="margin-top:10px">
-            <label for="trayDivW">Tray splits across W</label><span class="val" id="trayDivW-v"></span>
-            <input type="range" id="trayDivW" min="1" max="6" step="1">
+          <div class="row">
+            <span class="lab">Tray dividers</span>
+            <div class="size-row">
+            <div class="stepper inline"><label for="trayDivW-out">W</label><div class="ctl"><button type="button" id="trayDivW-minus" aria-label="Fewer tray sections across W">−</button><output id="trayDivW-out">1</output><button type="button" id="trayDivW-plus" aria-label="More tray sections across W">+</button></div></div>
+            <div class="stepper inline"><label for="trayDivN-out">N</label><div class="ctl"><button type="button" id="trayDivN-minus" aria-label="Fewer tray sections across N">−</button><output id="trayDivN-out">1</output><button type="button" id="trayDivN-plus" aria-label="More tray sections across N">+</button></div></div>
+            </div>
           </div>
-          <div class="field">
-            <label for="trayDivN">Tray splits across N</label><span class="val" id="trayDivN-v"></span>
-            <input type="range" id="trayDivN" min="1" max="8" step="1">
+        </div>
+        <div id="heightBox" class="nest">
+          <div class="pair">
+            <span class="lab">Height</span>
+            <div class="seg" role="group" aria-label="Height">
+              <button type="button" id="ht-full" data-ht="full">Full</button>
+              <button type="button" id="ht-half" data-ht="half">Half</button>
+              <button type="button" id="ht-custom" data-ht="custom">Custom</button>
+            </div>
           </div>
-          <label class="check"><input type="checkbox" id="liftTrays"> Lift trays in the 3D view</label>
+          <div class="field" id="customHField" hidden>
+            <label for="customH">Height</label><span class="val" id="customH-v"></span>
+            <input type="range" id="customH" min="12" max="94" step="1">
+          </div>
         </div>
 
-        <div id="heightBox">
-        <p class="sub">Height</p>
-        <div class="seg" role="group" aria-label="Height">
-          <button type="button" id="ht-full" data-ht="full">Full</button>
-          <button type="button" id="ht-half" data-ht="half">Half</button>
-          <button type="button" id="ht-custom" data-ht="custom">Custom</button>
-        </div>
-        <div class="field" id="customHField" hidden>
-          <label for="customH">Height</label><span class="val" id="customH-v"></span>
-          <input type="range" id="customH" min="12" max="94" step="1">
-        </div>
+        <div class="row">
+          <span class="lab" id="divLabel">Dividers</span>
+          <div class="size-row">
+          <div class="stepper inline"><label for="divW-out">W</label><div class="ctl"><button type="button" id="divW-minus" aria-label="Fewer sections across W">−</button><output id="divW-out">1</output><button type="button" id="divW-plus" aria-label="More sections across W">+</button></div></div>
+          <div class="stepper inline"><label for="divN-out">N</label><div class="ctl"><button type="button" id="divN-minus" aria-label="Fewer sections across N">−</button><output id="divN-out">1</output><button type="button" id="divN-plus" aria-label="More sections across N">+</button></div></div>
+          </div>
         </div>
 
-        <p class="sub">Label <span style="text-transform:none;letter-spacing:0">· raised letters on a shelf inside the far wall</span></p>
         <div class="field">
-          <label for="label">Text</label><span class="val" id="label-v"></span>
+          <label for="label">Label</label><span class="val" id="label-v"></span>
           <input type="text" id="label" maxlength="24" autocomplete="off" spellcheck="false" placeholder="e.g. M3 NUTS">
         </div>
-        <div class="seg" role="group" aria-label="Label wall" id="labelSideBox" hidden>
-          <button type="button" id="side-back" data-side="back">Far wall</button>
-          <button type="button" id="side-left" data-side="left">Left wall</button>
-          <button type="button" id="side-right" data-side="right">Right wall</button>
+        <div class="pair" id="labelSideBox" hidden>
+          <span class="lab">Label wall</span>
+          <div class="seg" role="group" aria-label="Label wall">
+            <button type="button" id="side-back" data-side="back">Far</button>
+            <button type="button" id="side-left" data-side="left">Left</button>
+            <button type="button" id="side-right" data-side="right">Right</button>
+          </div>
         </div>
 
-        <p class="sub" id="divLabel">Dividers</p>
-        <div class="field">
-          <label for="divW">Splits across W</label><span class="val" id="divW-v"></span>
-          <input type="range" id="divW" min="1" max="8" step="1">
-        </div>
-        <div class="field">
-          <label for="divN">Splits across N</label><span class="val" id="divN-v"></span>
-          <input type="range" id="divN" min="1" max="10" step="1">
-        </div>
-        <div class="field">
-          <label for="divPct">Divider height</label><span class="val" id="divPct-v"></span>
-          <input type="range" id="divPct" min="20" max="100" step="5">
-        </div>
+        <details class="more" id="moreBox">
+          <summary>More <small>divider height · feet · apply to all bins</small></summary>
+          <div class="field">
+            <label for="divPct">Divider height</label><span class="val" id="divPct-v"></span>
+            <input type="range" id="divPct" min="20" max="100" step="5">
+          </div>
+          <div class="pair">
+            <span class="lab">Feet</span>
+            <div class="seg" role="group" aria-label="Feet" title="Feet need supports to print">
+              <button type="button" id="feet-none" data-feet="none">None</button>
+              <button type="button" id="feet-corners" data-feet="corners">Corners</button>
+              <button type="button" id="feet-edge" data-feet="edge">Every edge cell</button>
+            </div>
+          </div>
+          <div class="toolbar"><button type="button" class="btn ghost small" id="applyAll">Use this bin's options on all bins</button></div>
+        </details>
 
-        <p class="sub">Feet <span style="text-transform:none;letter-spacing:0">· feet need supports to print</span></p>
-        <div class="seg" role="group" aria-label="Feet">
-          <button type="button" id="feet-none" data-feet="none">None</button>
-          <button type="button" id="feet-corners" data-feet="corners">Corners</button>
-          <button type="button" id="feet-edge" data-feet="edge">Every edge cell</button>
-        </div>
-
-        <div class="toolbar">
-          <button type="button" class="btn ghost small" id="applyAll">Use these options on all bins</button>
-          <button type="button" class="btn ghost small" id="delSel">Delete bin</button>
-        </div>
+        <div class="toolbar"><button type="button" class="btn ghost small" id="delSel">Delete bin</button></div>
       </section>
 
       <details class="group" id="advGroup">
@@ -326,6 +342,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
         </div>
         <span class="tag">drag to orbit · scroll to zoom · double-click to reset</span>
         <button type="button" class="reset" id="resetView" title="Reset the camera">Reset view</button>
+        <label class="check lift" id="liftWrap" hidden><input type="checkbox" id="liftTrays"> Lift trays</label>
       </div>
       <div class="specs" id="specs"></div>
       <div class="summary" id="summary"></div>
@@ -1139,7 +1156,6 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
     $("codeMeta").innerHTML = b ? "<span>bin <b>" + idx(b) + "</b> of " + S.bins.length + " · slot <b>" + b.w * S.pitchW + " × " + b.n * S.pitchN + "</b> mm</span><span>" +
       caseName() + " case · " + (b.stack ? "stacked <b>" + Math.round(D.h) + " + " + Math.round(trayH(b) - S.plugDepth) + "</b> mm" : "<b>" + f1(D.h) + "</b> mm tall") + "</span>" : "<span>Draw a bin on the floor grid.</span>";
   }
-  function sections(n) { return n === 1 ? "none" : n + " sections"; }
   function updateBinPanel(b, D) {
     $("binGroup").classList.toggle("disabled", !b);
     if (!b) { $("binWhich").textContent = ""; $("specs").innerHTML = ""; return; }
@@ -1150,13 +1166,10 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
     $("divLabel").textContent = b.stack ? "Bottom bin dividers" : "Dividers";
     $("lowerH").min = 15; $("lowerH").max = caseH() - 15; $("lowerH").value = lowerH(b);
     $("lowerH-v").textContent = Math.round(lowerH(b)) + " mm bin + " + Math.round(trayH(b) - S.plugDepth) + " mm tray";
-    $("liftTrays").checked = !!S.liftTrays;
-    $("trayDivW").value = b.trayDivW; $("trayDivW-v").textContent = sections(b.trayDivW);
-    $("trayDivN").value = b.trayDivN; $("trayDivN-v").textContent = sections(b.trayDivN);
+    $("trayDivW-out").textContent = b.trayDivW; $("trayDivN-out").textContent = b.trayDivN;
     $("customHField").hidden = b.ht !== "custom";
     $("customH").max = D.full; $("customH").value = Math.min(b.customH, D.full); $("customH-v").textContent = f1(Math.min(b.customH, D.full)) + " mm";
-    $("divW").value = b.divW; $("divW-v").textContent = sections(b.divW);
-    $("divN").value = b.divN; $("divN-v").textContent = sections(b.divN);
+    $("divW-out").textContent = b.divW; $("divN-out").textContent = b.divN;
     $("divPct").value = b.divPct; $("divPct-v").textContent = b.divPct + "%";
     if (document.activeElement !== $("label")) $("label").value = b.label;
     $("labelSideBox").hidden = !cleanLabel(b.label); setPressed("side", b.labelSide);
@@ -1183,6 +1196,8 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
     $("fullNote").hidden = used < TOTAL_CELLS;
     $("summary").textContent = S.bins.length ? S.bins.length + " bin" + (S.bins.length > 1 ? "s" : "") + " · " + used + " of " + TOTAL_CELLS + " cells filled · " + gs.length + " unique STL" + (gs.length > 1 ? "s" : "") : "Empty case.";
     $("dlAll").disabled = !S.bins.length; $("dlOne").disabled = !b; $("copyScad").disabled = !b;
+    $("liftTrays").checked = !!S.liftTrays;
+    $("liftWrap").hidden = !S.bins.some(function (o) { return o.stack; }) || (S.view === "bin" && !(b && b.stack));
   }
   // Redraw everything from S. During a drag, fullRedraw === false skips the list and preset chips.
   function update(fullRedraw) {
@@ -1220,7 +1235,13 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
   $("w-plus").addEventListener("click", function () { resize(1, 0); });
   $("n-minus").addEventListener("click", function () { resize(0, -1); });
   $("n-plus").addEventListener("click", function () { resize(0, 1); });
-  ["divW", "divN", "divPct", "customH", "trayDivW", "trayDivN"].forEach(function (k) { $(k).addEventListener("input", function () { var b = sel(); if (b) { b[k] = +$(k).value; update(); } }); });
+  ["divPct", "customH"].forEach(function (k) { $(k).addEventListener("input", function () { var b = sel(); if (b) { b[k] = +$(k).value; update(); } }); });
+  var STEP_LIMITS = { divW: [1, 8], divN: [1, 10], trayDivW: [1, 6], trayDivN: [1, 8] };
+  Object.keys(STEP_LIMITS).forEach(function (k) {
+    function bump(d) { var b = sel(); if (!b) return; var v = Math.min(STEP_LIMITS[k][1], Math.max(STEP_LIMITS[k][0], b[k] + d)); if (v !== b[k]) { b[k] = v; update(); } }
+    $(k + "-minus").addEventListener("click", function () { bump(-1); });
+    $(k + "-plus").addEventListener("click", function () { bump(1); });
+  });
   $("label").addEventListener("input", function () { var b = sel(); if (b) { b.label = $("label").value.slice(0, LABEL.maxLen); update(); } });
   document.querySelectorAll("[data-side]").forEach(function (x) { x.addEventListener("click", function () { var b = sel(); if (b) { b.labelSide = x.getAttribute("data-side"); update(); } }); });
   ADV_KEYS.forEach(function (k) {
