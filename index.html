@@ -868,7 +868,10 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
   function show3D() {
     if (!three) return;
     while (three.world.children.length) three.world.remove(three.world.children[0]);
-    if (Object.keys(geoCache).length > 120) geoCache = {};
+    if (Object.keys(geoCache).length > 120) { // the scene is empty here, so nothing still uses these buffers
+      Object.keys(geoCache).forEach(function (k) { geoCache[k].mesh.dispose(); geoCache[k].edges.dispose(); });
+      geoCache = {};
+    }
     var on = sel(), caseView = S.view === "case";
     three.plate.visible = caseView; three.handle.visible = caseView;
     var frameKey;
