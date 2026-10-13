@@ -15,7 +15,7 @@ Works with:
 
 **[Open the Storehouse Bin Builder](https://philhoyt.github.io/Storehouse-Bin-Generator/)**
 
-It runs in your browser. No install, no account. You can also open `index.html` locally.
+It runs in your browser. No install, no account. To run it from a local checkout, serve the folder (for example `npm run serve`, then open http://localhost:8765). Opening `index.html` straight from disk won't work, because the app is split into modules that browsers only load over HTTP.
 
 1. Pick the case: Medium or Large.
 2. Drag across empty cells on the floor map to draw a bin. Drag a bin to move it.
@@ -76,6 +76,14 @@ Divided bins get a grid of label cells shaped like the compartments, far row on 
 - Stacked bins get a grid for the bottom bin and one for each tray, named by where the tray sits as seen from the front. Trays with the same labels share one STL.
 - Shelves sit between the dividers, so dividers never cut through a label.
 
+## Development
+
+```bash
+npm test
+```
+
+No dependencies. The tests run on Node's built-in runner. The golden tests hash the exported zips for a set of layouts and compare them with values recorded from the real UI, so any change to the geometry or the export format shows up as a failure; re-record them only when the change is intended. The mesh code uses its own trig series instead of `Math.sin` and friends so that every JavaScript engine produces the same bytes.
+
 ## OpenSCAD
 
 `storehouse_bin.scad` builds the same bins in OpenSCAD with the Customizer, labels included (set `label` for one label along the wall, or `labels` for one per compartment, plus `label_wall`; OpenSCAD uses a real font, the app uses a stroke font). Stacked bins too: render once with `part = "base"` and once with `part = "tray"`. In the web app, **Copy OpenSCAD settings** gives you a block to paste over the top of the file.
@@ -84,7 +92,14 @@ Divided bins get a grid of label cells shaped like the compartments, far row on 
 
 | File | What it is |
 |---|---|
-| `index.html` | The web app. One file, loads three.js from a CDN. |
+| `index.html` | The page: markup and styles. Loads three.js from a CDN and the app from `src/`. |
+| `src/app.js` | Everything that touches the page: the floor map, the panel, the 3D view, downloads. |
+| `src/geometry.js` | Meshes for bins, trays, dividers, ribs, feet, and label shelves. |
+| `src/export.js` | File names, grouping, the STL and zip writers, layout.txt, the OpenSCAD settings block. |
+| `src/layout.js` | The case floor grid, placement rules, stock layouts. |
+| `src/state.js` | Defaults, limits, and the checked restore of saved state. |
+| `src/bins.js` | Small pure helpers: orientation, label cells, the stroke font. |
+| `test/` | Node tests. Golden checksums of exports plus unit tests. |
 | `storehouse_bin.scad` | OpenSCAD version of the generator. |
 | `STACKING.md` | How stacked bins fit together, and what to test. |
 | `Previous Attempts/` | The original plain-box SCAD. |
