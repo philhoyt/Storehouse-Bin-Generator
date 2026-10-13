@@ -154,7 +154,7 @@ details.group[open] summary::after { content: "−"; }
 .btn.ghost:hover { background: var(--stage); }
 .btn:disabled { opacity: .4; cursor: not-allowed; }
 .btn.small { font-size: .85rem; padding: 6px 10px; border-width: 1px; }
-.status { font-size: .85rem; color: var(--muted); min-height: 1.2em; }
+.status { font-size: .85rem; color: var(--muted); min-height: 1.2em; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .copybox { width: 100%; font-family: var(--mono); font-size: .75rem; min-height: 120px; background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 3px; padding: 8px; }
 
 button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visible { outline: 2px solid var(--bin-deep); outline-offset: 2px; }
@@ -320,7 +320,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
         <button type="button" class="btn ghost" id="dlOne">Download selected</button>
         <button type="button" class="btn ghost" id="copyScad">Copy OpenSCAD settings</button>
       </div>
-      <div class="status" id="status" role="status"></div>
+      <div class="status" role="status"><span id="status"></span><button type="button" class="chip quiet" id="undo" hidden>Undo</button></div>
       <textarea class="copybox" id="copyFallback" readonly hidden aria-label="OpenSCAD settings"></textarea>
     </div>
   </div>
@@ -350,8 +350,24 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
   var $ = function (id) { return document.getElementById(id); };
   function sel() { for (var i = 0; i < S.bins.length; i++) if (S.bins[i].id === S.selId) return S.bins[i]; return null; }
   function idx(b) { return S.bins.indexOf(b) + 1; }
-  var status = $("status");
-  function say(t) { status.textContent = t; }
+  var status = $("status"), undoBtn = $("undo");
+  var undo = null; // one step back from the last delete, empty case, or stock layout
+  function say(t) { status.textContent = t; undo = null; undoBtn.hidden = true; }
+  function sayUndo(t, u) { status.textContent = t; undo = u; undoBtn.hidden = false; }
+  function doUndo() {
+    var u = undo; if (!u) return;
+    if (u.bin) { // put the deleted bin back where it was, or the nearest free spot
+      var b = u.bin;
+      if (!canPlace(b.zone, b.c, b.r, b.w, b.n)) {
+        var spot = findSpot(b.w, b.n);
+        if (!spot) { say("No room to put bin " + codeOf(b) + " back. Move or delete a bin first."); update(); return; }
+        b.zone = spot.zone; b.c = spot.c; b.r = spot.r;
+      }
+      S.bins.splice(Math.min(u.index, S.bins.length), 0, b); S.selId = b.id;
+    } else { S.bins = u.bins; S.selId = u.selId; }
+    say(u.undone); update();
+  }
+  undoBtn.addEventListener("click", doUndo);
 
   // ================================================================ floor grid
   // Long axis: 10 N cells. Main block: 4 W rows. Handle strip: 2 N rows, a 2-cell (W) pocket each end.
@@ -959,10 +975,12 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
   }
   function removeBin(id) {
     var i = S.bins.findIndex(function (b) { return b.id === id; }); if (i < 0) return;
-    S.bins.splice(i, 1);
+    var gone = S.bins.splice(i, 1)[0], label = "bin " + (i + 1) + " (" + codeOf(gone) + ")";
     if (S.selId === id) S.selId = S.bins.length ? S.bins[Math.min(i, S.bins.length - 1)].id : null;
+    sayUndo("Deleted " + label + ".", { bin: gone, index: i, undone: "Restored " + label + "." });
     update();
   }
+  function snapshot(undone) { return { bins: S.bins, selId: S.selId, undone: undone }; }
 
   function update(fullRedraw) {
     var b = sel();
@@ -1051,11 +1069,20 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
     say("Applied bin " + idx(b) + "'s height, dividers and feet to all " + S.bins.length + " bins."); update();
   });
   $("delSel").addEventListener("click", function () { var b = sel(); if (b) removeBin(b.id); });
-  $("stockLayout").addEventListener("click", function () { stockLayout(); say("Loaded the stock " + (S.caseType === "M" ? "Medium" : "Large") + " case layout."); update(); });
-  $("clearAll").addEventListener("click", function () { S.bins = []; S.selId = null; say("Case emptied. Drag on the grid to draw a bin."); update(); });
+  $("stockLayout").addEventListener("click", function () {
+    var u = snapshot("Put the previous layout back.");
+    stockLayout(); sayUndo("Loaded the stock " + (S.caseType === "M" ? "Medium" : "Large") + " case layout.", u); update();
+  });
+  $("clearAll").addEventListener("click", function () {
+    var u = snapshot("Put the previous layout back.");
+    S.bins = []; S.selId = null; sayUndo("Case emptied. Drag on the grid to draw a bin.", u); update();
+  });
   document.addEventListener("keydown", function (e) {
-    if ((e.key === "Delete" || e.key === "Backspace") && !/INPUT|TEXTAREA/.test((document.activeElement || {}).tagName || "")) {
+    if (/INPUT|TEXTAREA/.test((document.activeElement || {}).tagName || "")) return;
+    if (e.key === "Delete" || e.key === "Backspace") {
       var b = sel(); if (b) { e.preventDefault(); removeBin(b.id); }
+    } else if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === "z" && undo) {
+      e.preventDefault(); doUndo();
     }
   });
 
