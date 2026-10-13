@@ -345,22 +345,6 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
   }
 
   var S = Object.assign({ caseType: "M", view: "case", bins: [], selId: null }, MEASURED);
-  try {
-    var saved = JSON.parse(localStorage.getItem("sbb-state-v4") || "null");
-    if (saved && typeof saved === "object") {
-      if (Array.isArray(saved.bins)) {
-        S = Object.assign(S, saved);
-        S.bins = S.bins.map(function (b) { return Object.assign({}, BIN_OPTS, b); });
-        S.bins.forEach(function (b) { nextId = Math.max(nextId, b.id + 1); });
-      } else { // older single-bin save
-        ADV_KEYS.concat(["caseType"]).forEach(function (k) { if (k in saved) S[k] = saved[k]; });
-        var sel = saved.sel || { zone: "main", c: 0, r: 0 };
-        var b0 = newBin(sel.zone || "main", sel.c || 0, sel.r || 0, saved.w || 1, saved.n || 2,
-          { ht: saved.ht || "full", customH: saved.customH || 30, divW: saved.divW || 1, divN: saved.divN || 1, divPct: saved.divPct || 100, feet: saved.feet || "corners" });
-        S.bins = [b0]; S.selId = b0.id;
-      }
-    }
-  } catch (e) {}
   function persist() { try { localStorage.setItem("sbb-state-v4", JSON.stringify(S)); } catch (e) {} }
 
   var $ = function (id) { return document.getElementById(id); };
@@ -408,6 +392,44 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
   }
   function usedCells() { return S.bins.reduce(function (s, b) { return s + b.w * b.n; }, 0); }
   var TOTAL_CELLS = MAP.mainCols * MAP.mainRows + 2 * MAP.zoneCols * MAP.stripRows;
+
+  // ================================================================ restore saved state
+  // Anything from localStorage is checked before use: a bad zone or overlapping bins would otherwise break startup.
+  var BIN_ENUMS = { ht: ["full", "half", "custom"], feet: ["none", "corners", "edge"], split: ["1", "w", "n", "4"] };
+  function isNum(v) { return typeof v === "number" && isFinite(v); }
+  function isInt(v, lo, hi) { return isNum(v) && v === Math.floor(v) && v >= lo && v <= hi; }
+  function cleanBin(raw) { // a saved bin with every field checked, or null if it can't be trusted
+    if (!raw || typeof raw !== "object" || !Object.prototype.hasOwnProperty.call(zones, raw.zone)) return null;
+    var b = Object.assign({}, BIN_OPTS, raw);
+    if (!isInt(b.id, 1, 1e9) || !isInt(b.c, 0, 99) || !isInt(b.r, 0, 99) || !isInt(b.w, 1, 10) || !isInt(b.n, 1, 10)) return null;
+    Object.keys(BIN_ENUMS).forEach(function (k) { if (BIN_ENUMS[k].indexOf(b[k]) < 0) b[k] = BIN_OPTS[k]; });
+    ["customH", "divW", "divN", "divPct", "lowerH", "trayDivW", "trayDivN"].forEach(function (k) { if (!isNum(b[k])) b[k] = BIN_OPTS[k]; });
+    b.stack = !!b.stack;
+    return { id: b.id, zone: b.zone, c: b.c, r: b.r, w: b.w, n: b.n, ht: b.ht, customH: b.customH, divW: b.divW, divN: b.divN, divPct: b.divPct,
+             feet: b.feet, stack: b.stack, lowerH: b.lowerH, split: b.split, trayDivW: b.trayDivW, trayDivN: b.trayDivN };
+  }
+  function addSavedBin(raw) {
+    var b = cleanBin(raw);
+    if (b && canPlace(b.zone, b.c, b.r, b.w, b.n) && !S.bins.some(function (o) { return o.id === b.id; })) { S.bins.push(b); nextId = Math.max(nextId, b.id + 1); }
+  }
+  try {
+    var saved = JSON.parse(localStorage.getItem("sbb-state-v4") || "null");
+    if (saved && typeof saved === "object") {
+      if (saved.caseType === "M" || saved.caseType === "L") S.caseType = saved.caseType;
+      ADV_KEYS.forEach(function (k) { if (isNum(saved[k])) S[k] = Math.min(parseFloat($(k).max), Math.max(parseFloat($(k).min), saved[k])); });
+      if (Array.isArray(saved.bins)) {
+        if (saved.view === "case" || saved.view === "bin") S.view = saved.view;
+        S.liftTrays = !!saved.liftTrays;
+        saved.bins.forEach(addSavedBin);
+        S.selId = saved.selId;
+      } else { // older single-bin save
+        var sv = saved.sel || {};
+        addSavedBin(newBin(sv.zone || "main", sv.c || 0, sv.r || 0, saved.w || 1, saved.n || 2,
+          { ht: saved.ht || "full", customH: saved.customH || 30, divW: saved.divW || 1, divN: saved.divN || 1, divPct: saved.divPct || 100, feet: saved.feet || "corners" }));
+      }
+      if (!sel()) S.selId = S.bins.length ? S.bins[0].id : null;
+    }
+  } catch (e) {}
 
   var svgNS = "http://www.w3.org/2000/svg", floor = $("floor"), binG, cellEls = [];
   function el(tag, attrs, parent) { var e = document.createElementNS(svgNS, tag); for (var k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; }
