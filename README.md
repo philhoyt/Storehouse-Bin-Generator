@@ -57,9 +57,15 @@ Measured from stock bins with calipers:
 
 If a test print is tight, raise **Clearance per side** under **Fit and print**. Start with an `M-1x1`. It's small and quick.
 
+## Stacking
+
+Get two levels out of one slot. A stacked bin is a shorter bottom bin plus a top tray that fills the rest of the case height, so the lid still closes. The tray has a short plug that drops inside the bin's rim, and it prints without supports. Tops can be one tray, two, or four.
+
+Select a bin and switch it to **Stacked**. Before printing big ones, grab **Fit and print > Download fit test** to dial in the plug clearance. Details in [STACKING.md](STACKING.md).
+
 ## OpenSCAD
 
-`storehouse_bin.scad` builds the same bins in OpenSCAD with the Customizer. In the web app, **Copy OpenSCAD settings** gives you a block to paste over the top of the file.
+`storehouse_bin.scad` builds the same bins in OpenSCAD with the Customizer. Stacked bins too: render once with `part = "base"` and once with `part = "tray"`. In the web app, **Copy OpenSCAD settings** gives you a block to paste over the top of the file.
 
 ## Files
 
@@ -67,4 +73,5 @@ If a test print is tight, raise **Clearance per side** under **Fit and print**. 
 |---|---|
 | `index.html` | The web app. One file, loads three.js from a CDN. |
 | `storehouse_bin.scad` | OpenSCAD version of the generator. |
+| `STACKING.md` | How stacked bins fit together, and what to test. |
 | `Previous Attempts/` | The original plain-box SCAD. |

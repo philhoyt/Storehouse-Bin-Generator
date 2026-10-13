@@ -227,6 +227,14 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
             <button type="button" id="split-n" data-split="n">2 across N</button>
             <button type="button" id="split-4" data-split="4">4 trays</button>
           </div>
+          <div class="field" style="margin-top:10px">
+            <label for="trayDivW">Tray splits across W</label><span class="val" id="trayDivW-v"></span>
+            <input type="range" id="trayDivW" min="1" max="6" step="1">
+          </div>
+          <div class="field">
+            <label for="trayDivN">Tray splits across N</label><span class="val" id="trayDivN-v"></span>
+            <input type="range" id="trayDivN" min="1" max="8" step="1">
+          </div>
           <label class="check"><input type="checkbox" id="liftTrays"> Lift trays in the 3D view</label>
         </div>
 
@@ -243,7 +251,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
         </div>
         </div>
 
-        <p class="sub">Dividers</p>
+        <p class="sub" id="divLabel">Dividers</p>
         <div class="field">
           <label for="divW">Splits across W</label><span class="val" id="divW-v"></span>
           <input type="range" id="divW" min="1" max="8" step="1">
@@ -284,7 +292,12 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
           <div class="field"><label for="hL">Large case height</label><input type="number" id="hL" step="0.5" min="20" max="140"></div>
           <div class="field"><label for="footD">Foot diameter</label><input type="number" id="footD" step="0.5" min="2" max="12"></div>
           <div class="field"><label for="footH">Foot height</label><input type="number" id="footH" step="0.1" min="0.4" max="5"></div>
+          <div class="field"><label for="plugDepth">Stack plug depth</label><input type="number" id="plugDepth" step="0.5" min="2" max="10"></div>
+          <div class="field"><label for="plugClear">Stack plug clearance per side</label><input type="number" id="plugClear" step="0.05" min="0" max="1.5"></div>
           <button type="button" class="btn ghost small" id="resetAdv">Reset to measured</button>
+          <p class="sub" style="margin-top:6px">Stacking fit test</p>
+          <p class="map-note">A short 1x1 bin plus three tiny trays at different plug clearances. Prints in minutes. Keep the tray that seats with light friction and enter its clearance above.</p>
+          <button type="button" class="btn ghost small" id="fitTest">Download fit test</button>
         </div>
       </details>
     </div>
@@ -317,9 +330,9 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
   "use strict";
 
   // ================================================================ state
-  var MEASURED = { wall: 1.6, floorT: 1.6, cornerR: 3, draft: 1.5, clearance: 0.25, pitchW: 54, pitchN: 40, hM: 50, hL: 94, footD: 5, footH: 1.6 };
-  var BIN_OPTS = { ht: "full", customH: 30, divW: 1, divN: 1, divPct: 100, feet: "none", stack: false, lowerH: 0, split: "1" };
-  var PLUG = 4, PLUG_CLEAR = 0.4, TRAY_GAP = 0.6; // stacking: tray plug depth, plug clearance per side, gap between split trays
+  var MEASURED = { wall: 1.6, floorT: 1.6, cornerR: 3, draft: 1.5, clearance: 0.25, pitchW: 54, pitchN: 40, hM: 50, hL: 94, footD: 5, footH: 1.6, plugDepth: 4, plugClear: 0.4 };
+  var BIN_OPTS = { ht: "full", customH: 30, divW: 1, divN: 1, divPct: 100, feet: "none", stack: false, lowerH: 0, split: "1", trayDivW: 1, trayDivN: 1 };
+  var TRAY_GAP = 0.6; // stacking: gap between split trays (plug depth and clearance live in S)
   var ADV_KEYS = Object.keys(MEASURED);
   var FOOT_INSET = 4;
   var nextId = 1;
@@ -500,7 +513,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
   }
   function caseH() { return S.caseType === "L" ? S.hL : S.hM; }
   function lowerH(b) { var full = caseH(), v = b.lowerH > 0 ? b.lowerH : full / 2; return Math.max(15, Math.min(full - 15, v)); }
-  function trayH(b) { return caseH() - lowerH(b) + PLUG; }
+  function trayH(b) { return caseH() - lowerH(b) + S.plugDepth; }
   function trays(b) { // footprints of the top tray(s), in the base bin's local coordinates
     var D = dims(b), kx = (b.split === "w" || b.split === "4") ? 2 : 1, ky = (b.split === "n" || b.split === "4") ? 2 : 1;
     var tx = (D.bx - (kx - 1) * TRAY_GAP) / kx, ty = (D.by - (ky - 1) * TRAY_GAP) / ky, out = [];
@@ -508,16 +521,32 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
       out.push({ bx: tx, by: ty, cx: -D.bx / 2 + tx / 2 + i * (tx + TRAY_GAP), cy: -D.by / 2 + ty / 2 + j * (ty + TRAY_GAP) });
     return out;
   }
-  function buildTray(b, t) {
+  function buildTray(b, t, hOverride) {
     // Prints right side up. Plug (sits inside the bin below) -> 45 deg chamfer -> straight body.
-    var H = trayH(b), e = S.wall + PLUG_CLEAR, seg = 8, r = S.cornerR, dr = PLUG * Math.tan(S.draft * Math.PI / 180);
+    var H = hOverride || trayH(b), e = S.wall + S.plugClear, seg = 8, r = S.cornerR, dr = S.plugDepth * Math.tan(S.draft * Math.PI / 180);
     var px = t.bx - 2 * e, py = t.by - 2 * e, sh = [];
-    var P0 = ring(px - 2 * dr, py - 2 * dr, r - e, 0, seg), P1 = ring(px, py, r - e, PLUG, seg);
-    var B0 = ring(t.bx, t.by, r, PLUG + e, seg), B1 = ring(t.bx, t.by, r, H, seg);
+    var P0 = ring(px - 2 * dr, py - 2 * dr, r - e, 0, seg), P1 = ring(px, py, r - e, S.plugDepth, seg);
+    var B0 = ring(t.bx, t.by, r, S.plugDepth + e, seg), B1 = ring(t.bx, t.by, r, H, seg);
     var I1 = ring(t.bx - 2 * S.wall, t.by - 2 * S.wall, r - S.wall, H, seg);
     var I0 = ring(px - 2 * dr - 2 * S.wall, py - 2 * dr - 2 * S.wall, r - e - S.wall, S.floorT, seg);
     strip(sh, P0, P1); strip(sh, P1, B0); strip(sh, B0, B1); strip(sh, B1, I1); strip(sh, I1, I0); cap(sh, I0, true); cap(sh, P0, false);
-    return solid(sh);
+    var parts = [solid(sh)];
+    // dividers: the inner wall runs straight from the floor ring (I0) up to the rim ring (I1)
+    var i0x = px - 2 * dr - 2 * S.wall, i0y = py - 2 * dr - 2 * S.wall, i1x = t.bx - 2 * S.wall, i1y = t.by - 2 * S.wall;
+    function inner(z) { var k = (z - S.floorT) / (H - S.floorT); return { x: i0x + (i1x - i0x) * k, y: i0y + (i1y - i0y) * k }; }
+    var ov = S.wall * 0.7, tt = 1.2, z0 = S.floorT - 0.05, z1 = H, a = inner(z0), bb = inner(z1);
+    for (var i = 1; i < b.trayDivW; i++) {
+      var f = i / b.trayDivW - 0.5, xa = f * a.x, xb = f * bb.x, ya = a.y / 2 + ov, yb = bb.y / 2 + ov;
+      parts.push(hexa([[xa - tt/2, -ya, z0], [xa + tt/2, -ya, z0], [xa + tt/2, ya, z0], [xa - tt/2, ya, z0],
+                       [xb - tt/2, -yb, z1], [xb + tt/2, -yb, z1], [xb + tt/2, yb, z1], [xb - tt/2, yb, z1]]));
+    }
+    for (var j = 1; j < b.trayDivN; j++) {
+      var g = j / b.trayDivN - 0.5, y0 = g * a.y, y1 = g * bb.y, x0 = a.x / 2 + ov, x1 = bb.x / 2 + ov;
+      parts.push(hexa([[-x0, y0 - tt/2, z0], [x0, y0 - tt/2, z0], [x0, y0 + tt/2, z0], [-x0, y0 + tt/2, z0],
+                       [-x1, y1 - tt/2, z1], [x1, y1 - tt/2, z1], [x1, y1 + tt/2, z1], [-x1, y1 + tt/2, z1]]));
+    }
+    var all = []; parts.forEach(function (q) { Array.prototype.push.apply(all, q); });
+    return all;
   }
   function outerAt(D, z) { var k = 1 - (z - D.zb) / D.bodyH; return { x: D.bx - 2 * D.ins * k, y: D.by - 2 * D.ins * k }; }
   function innerAt(D, z) { var o = outerAt(D, z); return { x: o.x - 2 * S.wall, y: o.y - 2 * S.wall }; }
@@ -564,7 +593,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
 
     var ov = S.wall * 0.7, tt = 1.2;
     var z0 = D.zf - 0.05, z1 = D.zf + (D.zt - D.zf) * b.divPct / 100;
-    if (b.stack) z1 = Math.min(z1, D.zt - PLUG - 1); // leave room for the tray plug
+    if (b.stack) z1 = Math.min(z1, D.zt - S.plugDepth - 1); // leave room for the tray plug
     var a = innerAt(D, z0), bb = innerAt(D, z1);
     for (var i = 1; i < b.divW; i++) {
       var f = i / b.divW - 0.5, xa = f * a.x, xb = f * bb.x, ya = a.y / 2 + ov, yb = bb.y / 2 + ov;
@@ -578,7 +607,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
     }
     if (b.stack && b.split !== "1") {
       // support ribs under split lines, up to rim height, sized to sit between neighboring tray plugs
-      var rt = 2 * (S.wall + PLUG_CLEAR) + TRAY_GAP - 2 * PLUG_CLEAR, za = D.zf - 0.05, zr = D.zt;
+      var rt = 2 * (S.wall + S.plugClear) + TRAY_GAP - 2 * S.plugClear, za = D.zf - 0.05, zr = D.zt;
       var ia = innerAt(D, za), ir = innerAt(D, zr);
       if (b.split === "w" || b.split === "4")
         parts.push(hexa([[-rt/2, -ia.y/2 - ov, za], [rt/2, -ia.y/2 - ov, za], [rt/2, ia.y/2 + ov, za], [-rt/2, ia.y/2 + ov, za],
@@ -611,7 +640,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
     if (!b.stack) return [{ stem: fileStem(b), make: function () { return buildBin(b); } }];
     var t0 = trays(b)[0];
     return [{ stem: fileStem(b), make: function () { return buildBin(b); } }]
-      .concat(trays(b).map(function () { return { stem: S.caseType + "-" + b.w + "x" + b.n + "-stack-top" + Math.round(trayH(b)) + SPLIT_NAME[b.split], make: function () { return buildTray(b, t0); } }; }));
+      .concat(trays(b).map(function () { return { stem: S.caseType + "-" + b.w + "x" + b.n + "-stack-top" + Math.round(trayH(b)) + SPLIT_NAME[b.split] + (b.trayDivW > 1 || b.trayDivN > 1 ? "-div" + b.trayDivW + "x" + b.trayDivN : ""), make: function () { return buildTray(b, t0); } }; }));
   }
   function fileStem(b) {
     var s = codeOf(b);
@@ -623,7 +652,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
   function describe(b) {
     var bits = [];
     var D = dims(b);
-    if (b.stack) bits.push("stacked " + Math.round(lowerH(b)) + " + " + Math.round(trayH(b) - PLUG) + " mm" + ({ "1": "", w: " · 2 trays", n: " · 2 trays", "4": " · 4 trays" })[b.split]);
+    if (b.stack) bits.push("stacked " + Math.round(lowerH(b)) + " + " + Math.round(trayH(b) - S.plugDepth) + " mm" + ({ "1": "", w: " · 2 trays", n: " · 2 trays", "4": " · 4 trays" })[b.split]);
     else bits.push(b.ht === "full" ? "full height" : b.ht === "half" ? "half height" : Math.round(D.h) + " mm tall");
     if (b.divW > 1 || b.divN > 1) bits.push(b.divW * b.divN + " sections");
     if (b.feet !== "none") bits.push(b.feet === "corners" ? "corner feet" : "edge feet");
@@ -680,7 +709,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
       var bins = g.nums.filter(function (v, i, a) { return a.indexOf(v) === i; });
       lines.push(g.stem + (g.nums.length > 1 ? "-x" + g.nums.length : "") + ".stl  print " + g.nums.length + "  (bin" + (bins.length > 1 ? "s " : " ") + bins.join(", ") + ")");
     });
-    if (list.some(function (b) { return b.stack; })) lines.push("", "Stacked bins: print the -base and -top files. Each top tray has a " + PLUG + " mm plug that drops inside its base's rim.");
+    if (list.some(function (b) { return b.stack; })) lines.push("", "Stacked bins: print the -base and -top files. Each top tray has a " + S.plugDepth + " mm plug that drops inside its base's rim.");
     lines.push("", "Cell " + S.pitchW + " x " + S.pitchN + " mm (W x N). Clearance " + S.clearance + " mm per side. Wall " + S.wall + " mm.");
     return lines.join("\n");
   }
@@ -710,6 +739,27 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
     files.push({ name: "layout.txt", data: layoutText(S.bins) });
     var name = "storehouse-" + S.caseType + "-layout-" + S.bins.length + "-bins.zip";
     save(name, zip(files), "Saved " + name + ": " + gs.length + " STL file" + (gs.length > 1 ? "s" : "") + " for " + S.bins.length + " bins, plus layout.txt.");
+  });
+  $("fitTest").addEventListener("click", function () {
+    var keep = S.plugClear, base = Object.assign({ id: 0, zone: "left", c: 0, r: 0, w: 1, n: 1 }, BIN_OPTS, { stack: true, lowerH: 15 });
+    var t = trays(base)[0], files = [{ name: "fit-test-base-1x1-15mm.stl", data: toSTL(buildBin(base), "fit test base") }];
+    var steps = [-0.15, 0, 0.15].map(function (d, i) { return { c: Math.max(0, Math.round((keep + d) * 100) / 100), h: 8 + 2 * i }; });
+    steps.forEach(function (st) {
+      S.plugClear = st.c;
+      st.total = st.h + S.plugDepth;
+      files.push({ name: "fit-test-tray-clear" + st.c.toFixed(2) + "-" + st.total + "mm-tall.stl", data: toSTL(buildTray(base, t, st.total), "fit test tray " + st.c) });
+    });
+    S.plugClear = keep;
+    files.push({ name: "README.txt", data: [
+      "Storehouse stacking fit test", "",
+      "Print the base and all three trays, open side up, no supports.", "",
+      "Trays are told apart by overall height:",
+      steps.map(function (st) { return "  " + st.total + " mm tall: " + st.c.toFixed(2) + " mm plug clearance per side"; }).join("\n"), "",
+      "Drop each tray onto the base. Pick the one that seats with light friction and lifts out without the base coming with it.",
+      "Enter its clearance under Fit and print > Stack plug clearance.", "",
+      "The base is also an M-1x1 footprint, so you can check it in a handle pocket of the Medium case to test bin clearance."
+    ].join("\n") });
+    save("storehouse-stacking-fit-test.zip", zip(files), "Saved storehouse-stacking-fit-test.zip: a base, three trays, and a README.");
   });
   $("dlOne").addEventListener("click", function () {
     var b = sel(); if (!b) return;
@@ -772,7 +822,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
       trays(b).forEach(function (t) {
         var tm = new THREE.Group();
         tm.add(new THREE.Mesh(TG.mesh, mat === three.matOn ? three.matTray : three.matOff), new THREE.LineSegments(TG.edges, three.lineMat));
-        tm.position.set(t.cx, t.cy, lowerH(b) - PLUG + lift);
+        tm.position.set(t.cx, t.cy, lowerH(b) - S.plugDepth + lift);
         inner.add(tm);
       });
     }
@@ -881,7 +931,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
     code.textContent = b ? codeOf(b) : "No bin";
     code.classList.toggle("empty", !b);
     $("codeMeta").innerHTML = b ? "<span>bin <b>" + idx(b) + "</b> of " + S.bins.length + " · slot <b>" + b.w * S.pitchW + " × " + b.n * S.pitchN + "</b> mm</span><span>" +
-      (S.caseType === "M" ? "Medium case" : "Large case") + " · " + (b.stack ? "stacked <b>" + Math.round(D.h) + " + " + Math.round(trayH(b) - PLUG) + "</b> mm" : "<b>" + f1(D.h) + "</b> mm tall") + "</span>" : "<span>Draw a bin on the floor grid.</span>";
+      (S.caseType === "M" ? "Medium case" : "Large case") + " · " + (b.stack ? "stacked <b>" + Math.round(D.h) + " + " + Math.round(trayH(b) - S.plugDepth) + "</b> mm" : "<b>" + f1(D.h) + "</b> mm tall") + "</span>" : "<span>Draw a bin on the floor grid.</span>";
     setPressed("case", S.caseType); setPressed("view", S.view);
     // selected bin panel
     $("binGroup").classList.toggle("disabled", !b);
@@ -890,9 +940,12 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
       $("w-out").textContent = b.w; $("n-out").textContent = b.n;
       setPressed("ht", b.ht); setPressed("feet", b.feet); setPressed("stack", b.stack ? "on" : "off"); setPressed("split", b.split);
       $("stackBox").hidden = !b.stack; $("heightBox").hidden = !!b.stack;
+      $("divLabel").textContent = b.stack ? "Bottom bin dividers" : "Dividers";
       $("lowerH").min = 15; $("lowerH").max = caseH() - 15; $("lowerH").value = lowerH(b);
-      $("lowerH-v").textContent = Math.round(lowerH(b)) + " mm bin + " + Math.round(trayH(b) - PLUG) + " mm tray";
+      $("lowerH-v").textContent = Math.round(lowerH(b)) + " mm bin + " + Math.round(trayH(b) - S.plugDepth) + " mm tray";
       $("liftTrays").checked = !!S.liftTrays;
+      $("trayDivW").value = b.trayDivW; $("trayDivW-v").textContent = b.trayDivW === 1 ? "none" : b.trayDivW + " sections";
+      $("trayDivN").value = b.trayDivN; $("trayDivN-v").textContent = b.trayDivN === 1 ? "none" : b.trayDivN + " sections";
       $("customHField").hidden = b.ht !== "custom";
       $("customH").max = D.full; $("customH").value = Math.min(b.customH, D.full); $("customH-v").textContent = f1(Math.min(b.customH, D.full)) + " mm";
       $("divW").value = b.divW; $("divW-v").textContent = b.divW === 1 ? "none" : b.divW + " sections";
@@ -901,7 +954,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
       var ob = outerAt(D, D.zb), inn = innerAt(D, D.zt);
       var t0 = b.stack ? trays(b)[0] : null;
       $("specs").innerHTML = (b.stack
-        ? [["Bottom bin top", f1(D.bx) + " × " + f1(D.by)], ["Usable below tray", f1(D.h - S.floorT - PLUG) + " mm"], ["Each tray", f1(t0.bx) + " × " + f1(t0.by)], ["Heights", Math.round(D.h) + " + " + Math.round(trayH(b) - PLUG) + " mm"]]
+        ? [["Bottom bin top", f1(D.bx) + " × " + f1(D.by)], ["Usable below tray", f1(D.h - S.floorT - S.plugDepth) + " mm"], ["Each tray", f1(t0.bx) + " × " + f1(t0.by)], ["Heights", Math.round(D.h) + " + " + Math.round(trayH(b) - S.plugDepth) + " mm"]]
         : [["Top outside", f1(D.bx) + " × " + f1(D.by)], ["Bottom outside", f1(ob.x) + " × " + f1(ob.y)], ["Inside at rim", f1(inn.x) + " × " + f1(inn.y)], ["Height", f1(D.h) + " mm"]])
         .map(function (s) { return '<div class="spec"><span>' + s[0] + "</span><b>" + s[1] + "</b></div>"; }).join("");
     } else {
@@ -941,7 +994,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
   $("w-plus").addEventListener("click", function () { resize(1, 0); });
   $("n-minus").addEventListener("click", function () { resize(0, -1); });
   $("n-plus").addEventListener("click", function () { resize(0, 1); });
-  ["divW", "divN", "divPct", "customH"].forEach(function (k) { $(k).addEventListener("input", function () { var b = sel(); if (b) { b[k] = +$(k).value; update(); } }); });
+  ["divW", "divN", "divPct", "customH", "trayDivW", "trayDivN"].forEach(function (k) { $(k).addEventListener("input", function () { var b = sel(); if (b) { b[k] = +$(k).value; update(); } }); });
   ADV_KEYS.forEach(function (k) {
     $(k).addEventListener("change", function () {
       var v = parseFloat($(k).value);
@@ -967,19 +1020,23 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
   function scadText(b) {
     return [
       "case_type = \"" + S.caseType + "\";", "cells_w = " + b.w + ";", "cells_n = " + b.n + ";",
-      "half_height = " + (!b.stack && b.ht === "half") + ";", "custom_height = " + (b.stack || b.ht === "custom" ? f1(dims(b).h) : 0) + ";",
+      "half_height = " + (!b.stack && b.ht === "half") + ";", "custom_height = " + (!b.stack && b.ht === "custom" ? f1(dims(b).h) : 0) + ";",
+      "stack = " + !!b.stack + ";", "part = \"base\";  // base, tray, or assembled",
+      "lower_height = " + (b.stack ? Math.round(lowerH(b)) : 0) + ";", "split = \"" + b.split + "\";",
+      "tray_div_w = " + b.trayDivW + ";", "tray_div_n = " + b.trayDivN + ";",
       "div_w = " + b.divW + ";", "div_n = " + b.divN + ";", "divider_height_pct = " + b.divPct + ";",
       "feet = \"" + (b.feet === "edge" ? "perimeter" : b.feet) + "\";",
       "pitch_w = " + S.pitchW + ";", "pitch_n = " + S.pitchN + ";", "height_M = " + S.hM + ";", "height_L = " + S.hL + ";",
       "clearance = " + S.clearance + ";", "wall = " + S.wall + ";", "floor_t = " + S.floorT + ";",
-      "corner_r = " + S.cornerR + ";", "draft_deg = " + S.draft + ";", "foot_d = " + S.footD + ";", "foot_h = " + S.footH + ";"
+      "corner_r = " + S.cornerR + ";", "draft_deg = " + S.draft + ";", "foot_d = " + S.footD + ";", "foot_h = " + S.footH + ";",
+      "plug_depth = " + S.plugDepth + ";", "plug_clearance = " + S.plugClear + ";"
     ].join("\n");
   }
   $("copyScad").addEventListener("click", function () {
     var b = sel(); if (!b) return;
     var txt = scadText(b), box = $("copyFallback");
     function fallback() { box.hidden = false; box.value = txt; box.focus(); box.select(); say("Select and copy the settings below."); }
-    var note = b.stack ? " The SCAD file builds the bottom bin only; download the top trays from here." : "";
+    var note = b.stack ? " Render once with part = \"base\" and once with part = \"tray\"." : "";
     try { navigator.clipboard.writeText(txt).then(function () { box.hidden = true; say("Bin " + idx(b) + " settings copied. Paste them over the top of storehouse_bin.scad." + note); }, fallback); }
     catch (e) { fallback(); }
   });
