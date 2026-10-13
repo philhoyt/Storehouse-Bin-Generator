@@ -524,9 +524,10 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
       out.push({ bx: tx, by: ty, cx: -D.bx / 2 + tx / 2 + i * (tx + TRAY_GAP), cy: -D.by / 2 + ty / 2 + j * (ty + TRAY_GAP) });
     return out;
   }
-  function buildTray(b, t, hOverride) {
+  function buildTray(b, t, hOverride, clearOverride) {
     // Prints right side up. Plug (sits inside the bin below) -> 45 deg chamfer -> straight body.
-    var H = hOverride || trayH(b), e = S.wall + S.plugClear, seg = 8, r = S.cornerR, dr = S.plugDepth * Math.tan(S.draft * Math.PI / 180);
+    var H = hOverride || trayH(b), plugClear = clearOverride != null ? clearOverride : S.plugClear;
+    var e = S.wall + plugClear, seg = 8, r = S.cornerR, dr = S.plugDepth * Math.tan(S.draft * Math.PI / 180);
     var px = t.bx - 2 * e, py = t.by - 2 * e, sh = [];
     var P0 = ring(px - 2 * dr, py - 2 * dr, r - e, 0, seg), P1 = ring(px, py, r - e, S.plugDepth, seg);
     var B0 = ring(t.bx, t.by, r, S.plugDepth + e, seg), B1 = ring(t.bx, t.by, r, H, seg);
@@ -744,15 +745,13 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
     save(name, zip(files), "Saved " + name + ": " + gs.length + " STL file" + (gs.length > 1 ? "s" : "") + " for " + S.bins.length + " bins, plus layout.txt.");
   });
   $("fitTest").addEventListener("click", function () {
-    var keep = S.plugClear, base = Object.assign({ id: 0, zone: "left", c: 0, r: 0, w: 1, n: 1 }, BIN_OPTS, { stack: true, lowerH: 15 });
+    var base = Object.assign({ id: 0, zone: "left", c: 0, r: 0, w: 1, n: 1 }, BIN_OPTS, { stack: true, lowerH: 15 });
     var t = trays(base)[0], files = [{ name: "fit-test-base-1x1-15mm.stl", data: toSTL(buildBin(base), "fit test base") }];
-    var steps = [-0.15, 0, 0.15].map(function (d, i) { return { c: Math.max(0, Math.round((keep + d) * 100) / 100), h: 8 + 2 * i }; });
+    var steps = [-0.15, 0, 0.15].map(function (d, i) { return { c: Math.max(0, Math.round((S.plugClear + d) * 100) / 100), h: 8 + 2 * i }; });
     steps.forEach(function (st) {
-      S.plugClear = st.c;
       st.total = st.h + S.plugDepth;
-      files.push({ name: "fit-test-tray-clear" + st.c.toFixed(2) + "-" + st.total + "mm-tall.stl", data: toSTL(buildTray(base, t, st.total), "fit test tray " + st.c) });
+      files.push({ name: "fit-test-tray-clear" + st.c.toFixed(2) + "-" + st.total + "mm-tall.stl", data: toSTL(buildTray(base, t, st.total, st.c), "fit test tray " + st.c) });
     });
-    S.plugClear = keep;
     files.push({ name: "README.txt", data: [
       "Storehouse stacking fit test", "",
       "Print the base and all three trays, open side up, no supports.", "",
@@ -922,7 +921,10 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
         if (e.target.classList.contains("del")) { removeBin(b.id); return; }
         S.selId = b.id; update();
       });
-      li.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); S.selId = b.id; update(); } });
+      li.addEventListener("keydown", function (e) {
+        if (e.target.classList.contains("del")) return; // let the button handle its own Enter/Space
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); S.selId = b.id; update(); }
+      });
       ol.appendChild(li);
     });
     $("emptyNote").hidden = S.bins.length > 0;
