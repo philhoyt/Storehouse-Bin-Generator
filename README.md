@@ -68,6 +68,7 @@ Select a bin and switch it to **Stacked**. Before printing big ones, grab **Fit 
 Type a label and the bin gets raised letters on a small shelf inside the wall farthest from you. The shelf's face tilts toward you, so you can read it through the lid with parts in the bin. It prints without supports: the face slopes up, and the underside runs back to the wall at 45°.
 
 - Letters, numbers, space, and `- . / +`. Lowercase prints as capitals.
+- Tick **Blank label plate** for the shelf with no letters, for a sticker or a marker.
 - Letters are up to 6 mm tall. A long label gets smaller letters, down to 3.5 mm, then loses characters off the end. The panel says what fits.
 - The shelf reaches 6 mm into the bin and its face is 10 mm tall. Both are under **Fit and print**. Short bins get a smaller shelf.
 - Stacked bins get the label on the bottom bin under the tray plug, and on every tray.

@@ -43,6 +43,7 @@ feet = "none";    // [none:None (prints flat, no supports), corners:Corners (lik
 
 /* [Label] */
 label       = "";     // raised text on a sloped shelf inside one wall. Letters, numbers, space - . / +
+label_plate = false;  // the shelf with no letters, for a sticker or a marker
 label_wall  = "W+";   // [W+:+W wall, W-:-W wall, N+:+N wall, N-:-N wall]  (Copy OpenSCAD settings in the app picks the wall farthest from you)
 label_depth = 6;      // mm the shelf reaches into the bin
 label_face  = 10;     // mm, height of the sloped face the letters sit on
@@ -140,7 +141,7 @@ function lab_scale(z_top) = min(1, (z_top - floor_t - 0.5) / (label_face + label
 
 module label_shelf(z_top, tray = false) {
     sc = lab_scale(z_top);
-    if (label != "" && sc >= 0.5) {
+    if ((label != "" || label_plate) && sc >= 0.5) {
         fh = label_face * sc;  xd = label_depth * sc;
         z_mid = z_top - fh;  z_under = z_mid - xd;
         u_top   = lab_inner(z_top, lab_p, tray) / 2 + lab_ov;
@@ -149,12 +150,12 @@ module label_shelf(z_top, tray = false) {
         u_under = lab_inner(z_under, lab_p, tray) / 2 + lab_ov;
         L = lab_inner(z_under, 1 - lab_p, tray) - 2 * (max(corner_r - wall, 0.5) + 0.5);
         face_len = norm([u_face - u_in, fh]);
-        cap = min(6, face_len - 3, (L - 3) / (0.8 * len(label)));
+        cap = label == "" ? 0 : min(6, face_len - 3, (L - 3) / (0.8 * len(label)));
         // the prism: a triangle in the (u, z) plane, extruded along the wall
         multmatrix([[lab_ep[0] * lab_s, 0, lab_es[0], 0], [lab_ep[1] * lab_s, 0, lab_es[1], 0], [0, 1, 0, 0], [0, 0, 0, 1]])
             linear_extrude(L, center = true) polygon([[u_top, z_top], [u_in, z_mid], [u_under, z_under]]);
         // the letters: text drawn in a frame on the face (h = reading direction, q = up the slope, n = out of the face)
-        if (cap >= 3.5) {
+        if (label != "" && cap >= 3.5) {
             c = lab_ep * lab_s * (u_face + u_in) / 2 + [0, 0, (z_top + z_mid) / 2];
             q = (lab_ep * lab_s * (u_face - u_in) + [0, 0, fh]) / face_len;
             h = cross(lab_ep * lab_s, [0, 0, 1]);
@@ -162,14 +163,14 @@ module label_shelf(z_top, tray = false) {
             multmatrix([[h[0], q[0], n[0], c[0]], [h[1], q[1], n[1], c[1]], [h[2], q[2], n[2], c[2]], [0, 0, 0, 1]])
                 translate([0, 0, -0.3]) linear_extrude(label_raise + 0.3)
                     text(label, size = cap, font = label_font, halign = "center", valign = "center");
-        } else echo("Label skipped: no room for readable letters on this wall");
-    } else if (label != "") echo("Label skipped: part too short for the shelf");
+        } else if (label != "") echo("Label skipped: no room for readable letters on this wall");
+    } else if (label != "" || label_plate) echo("Label skipped: part too short for the shelf");
 }
 // Everything inboard of the label face from the shelf's underside up. Dividers and ribs are cut by this so they stop
 // short of the face at full height and only reach the wall underneath the shelf.
 module label_keepout(z_top, tray = false) {
     sc = lab_scale(z_top);
-    if (label != "" && sc >= 0.5) {
+    if ((label != "" || label_plate) && sc >= 0.5) {
         fh = label_face * sc;  xd = label_depth * sc;
         z_under = z_top - fh - xd;
         u_in = lab_inner(z_top - fh, lab_p, tray) / 2 - xd;
