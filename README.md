@@ -83,7 +83,7 @@ npm install
 npm run check
 ```
 
-`npm run check` lints with ESLint and runs the tests; `npm run lint` and `npm test` do each on its own. ESLint is the only dependency. The tests run on Node's built-in runner. The golden tests hash the exported zips for a set of layouts and compare them with values recorded from the real UI, so any change to the geometry or the export format shows up as a failure; re-record them only when the change is intended. The mesh code uses its own trig series instead of `Math.sin` and friends so that every JavaScript engine produces the same bytes.
+`npm run check` lints with ESLint and runs the tests; `npm run lint` and `npm test` do each on its own. ESLint is the only dependency. The tests run on Node's built-in runner. GitHub Actions runs the same check on every push and pull request, and publishes the site to GitHub Pages only when it passes on `main`. The golden tests hash the exported zips for a set of layouts and compare them with values recorded from the real UI, so any change to the geometry or the export format shows up as a failure; re-record them only when the change is intended. The mesh code uses its own trig series instead of `Math.sin` and friends so that every JavaScript engine produces the same bytes.
 
 ## OpenSCAD
 
