@@ -2,7 +2,7 @@
 
 Get two levels out of one slot. A shorter bottom bin holds the bulk parts, and a removable top tray rides on it. Together they fill the full case height, so the lid still closes. Best in the Large case, where 94 mm is a lot of depth for small parts.
 
-Status: built in the web app and the OpenSCAD file on the `stackable` branch. Not printed yet.
+Status: built in the web app and the OpenSCAD file. Not printed or test-fitted in a case yet.
 
 ## How it fits together
 
