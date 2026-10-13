@@ -71,7 +71,7 @@ Type a label and the bin gets raised letters on a small shelf inside the wall fa
 - Tick **Blank label plate** for the shelf with no letters, for a sticker or a marker.
 - Letters are up to 6 mm tall. A long label gets smaller letters, down to 3.5 mm, then loses characters off the end. The panel says what fits.
 - The shelf reaches 6 mm into the bin and its face is 10 mm tall. Both are under **Fit and print**. Short bins get a smaller shelf.
-- Stacked bins get the label on the bottom bin under the tray plug, and on every tray.
+- Stacked bins get a label field for the bottom bin and one for each tray, named by where the tray sits as seen from the front. Trays with the same text share one STL.
 - Dividers that run into the label wall stop just short of the face, and continue to the wall only underneath the shelf.
 
 ## OpenSCAD
