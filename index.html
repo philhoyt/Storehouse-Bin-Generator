@@ -134,6 +134,8 @@ details.group[open] summary::after { content: "−"; }
 .stage canvas { display: block; width: 100%; height: 100%; }
 .stage .tag { position: absolute; left: 10px; bottom: 8px; font-family: var(--mono); font-size: .72rem; color: var(--muted); pointer-events: none; }
 .stage .viewseg { position: absolute; right: 10px; top: 10px; background: var(--panel); }
+.stage .reset { position: absolute; right: 10px; bottom: 10px; font: inherit; font-size: .82rem; border: 1px solid var(--line); background: var(--panel); color: var(--ink); padding: 5px 10px; border-radius: 4px; cursor: pointer; }
+.stage .reset:hover { border-color: var(--ink); }
 .stage .err { position: absolute; inset: 0; display: grid; place-items: center; padding: 20px; text-align: center; color: var(--muted); }
 
 .specs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
@@ -308,7 +310,8 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
           <button type="button" id="view-case" data-view="case">Whole case</button>
           <button type="button" id="view-bin" data-view="bin">Selected bin</button>
         </div>
-        <span class="tag">drag to orbit · scroll to zoom</span>
+        <span class="tag">drag to orbit · scroll to zoom · double-click to reset</span>
+        <button type="button" class="reset" id="resetView" title="Reset the camera">Reset view</button>
       </div>
       <div class="specs" id="specs"></div>
       <div class="summary" id="summary"></div>
@@ -782,6 +785,8 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
     var scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(35, 4 / 3, 1, 6000);
     var controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true; controls.dampingFactor = 0.12;
+    controls.minDistance = 40; controls.maxDistance = 1400; controls.maxPolarAngle = Math.PI / 2 - 0.04;
+    renderer.domElement.addEventListener("dblclick", function () { resetView(); });
     scene.add(new THREE.HemisphereLight(0xffffff, 0x6b6450, 0.85));
     var key = new THREE.DirectionalLight(0xffffff, 0.75); key.position.set(160, 300, 220); scene.add(key);
     var fill = new THREE.DirectionalLight(0xffffff, 0.25); fill.position.set(-220, 90, -140); scene.add(fill);
@@ -830,6 +835,12 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
     return outer;
   }
   var lastFrame = "";
+  function resetView() {
+    if (three) { // drop any leftover drag momentum so the camera stays put
+      three.controls.enableDamping = false; three.controls.update(); three.controls.enableDamping = true;
+    }
+    lastFrame = ""; show3D();
+  }
   function show3D() {
     if (!three) return;
     while (three.world.children.length) three.world.remove(three.world.children[0]);
@@ -974,6 +985,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
 
   // controls
   document.querySelectorAll("[data-case]").forEach(function (x) { x.addEventListener("click", function () { S.caseType = x.getAttribute("data-case"); update(); }); });
+  $("resetView").addEventListener("click", resetView);
   document.querySelectorAll("[data-view]").forEach(function (x) { x.addEventListener("click", function () { S.view = x.getAttribute("data-view"); update(); }); });
   document.querySelectorAll("[data-ht]").forEach(function (x) { x.addEventListener("click", function () { var b = sel(); if (b) { b.ht = x.getAttribute("data-ht"); update(); } }); });
   document.querySelectorAll("[data-stack]").forEach(function (x) { x.addEventListener("click", function () { var b = sel(); if (b) { b.stack = x.getAttribute("data-stack") === "on"; update(); } }); });
