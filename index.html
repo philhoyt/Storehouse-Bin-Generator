@@ -82,6 +82,7 @@ header { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content:
 .floor .pocket { fill: var(--pocket); stroke: var(--case-line); stroke-width: .6; pointer-events: none; }
 .floor .bin { fill: var(--bin-soft); stroke: var(--case); stroke-width: 1.5; pointer-events: none; }
 .floor .bin.on { fill: var(--bin); stroke: #fff; stroke-width: 2.5; }
+.floor .stack-mark { fill: none; stroke: #1C1C1A; stroke-width: 1.2; stroke-dasharray: 3 2.5; opacity: .55; pointer-events: none; }
 .floor .bin-num { font-family: var(--display); font-weight: 800; font-size: 17px; fill: #1C1C1A; pointer-events: none; }
 .floor .axis { font-family: var(--mono); font-size: 13px; font-weight: 600; fill: var(--muted); }
 .floor .handle-label { font-family: var(--mono); font-size: 12px; fill: var(--muted); letter-spacing: .1em; }
@@ -118,6 +119,8 @@ header { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content:
 .field .val { font-family: var(--mono); font-size: .8rem; color: var(--muted); font-variant-numeric: tabular-nums; }
 .field input[type=range] { grid-column: 1 / -1; width: 100%; accent-color: var(--bin-deep); }
 .field input[type=number] { width: 84px; font: inherit; font-family: var(--mono); font-size: .85rem; padding: 4px 6px; border: 1px solid var(--line); border-radius: 3px; background: var(--bg); color: var(--ink); }
+.check { display: flex; gap: 8px; align-items: center; font-size: .88rem; margin-top: 10px; cursor: pointer; }
+.check input { accent-color: var(--bin-deep); }
 .sub { font-size: .78rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 4px 0 -4px; }
 
 details.group summary { cursor: pointer; font-family: var(--display); font-weight: 600; font-size: .95rem; letter-spacing: .12em; text-transform: uppercase; list-style: none; display: flex; justify-content: space-between; }
@@ -207,6 +210,27 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
           </div>
         </div>
 
+        <p class="sub">Stack <span style="text-transform:none;letter-spacing:0">· a bottom bin plus top tray, full case height</span></p>
+        <div class="seg" role="group" aria-label="Stack">
+          <button type="button" id="stack-off" data-stack="off">Single bin</button>
+          <button type="button" id="stack-on" data-stack="on">Stacked</button>
+        </div>
+        <div id="stackBox" hidden>
+          <div class="field">
+            <label for="lowerH">Bottom bin height</label><span class="val" id="lowerH-v"></span>
+            <input type="range" id="lowerH" min="15" max="79" step="1">
+          </div>
+          <p class="sub" style="margin-top:10px">Top</p>
+          <div class="seg" role="group" aria-label="Top tray split">
+            <button type="button" id="split-1" data-split="1">1 tray</button>
+            <button type="button" id="split-w" data-split="w">2 across W</button>
+            <button type="button" id="split-n" data-split="n">2 across N</button>
+            <button type="button" id="split-4" data-split="4">4 trays</button>
+          </div>
+          <label class="check"><input type="checkbox" id="liftTrays"> Lift trays in the 3D view</label>
+        </div>
+
+        <div id="heightBox">
         <p class="sub">Height</p>
         <div class="seg" role="group" aria-label="Height">
           <button type="button" id="ht-full" data-ht="full">Full</button>
@@ -216,6 +240,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
         <div class="field" id="customHField" hidden>
           <label for="customH">Height</label><span class="val" id="customH-v"></span>
           <input type="range" id="customH" min="12" max="94" step="1">
+        </div>
         </div>
 
         <p class="sub">Dividers</p>
@@ -293,7 +318,8 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
 
   // ================================================================ state
   var MEASURED = { wall: 1.6, floorT: 1.6, cornerR: 3, draft: 1.5, clearance: 0.25, pitchW: 54, pitchN: 40, hM: 50, hL: 94, footD: 5, footH: 1.6 };
-  var BIN_OPTS = { ht: "full", customH: 30, divW: 1, divN: 1, divPct: 100, feet: "none" };
+  var BIN_OPTS = { ht: "full", customH: 30, divW: 1, divN: 1, divPct: 100, feet: "none", stack: false, lowerH: 0, split: "1" };
+  var PLUG = 4, PLUG_CLEAR = 0.4, TRAY_GAP = 0.6; // stacking: tray plug depth, plug clearance per side, gap between split trays
   var ADV_KEYS = Object.keys(MEASURED);
   var FOOT_INSET = 4;
   var nextId = 1;
@@ -308,6 +334,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
     if (saved && typeof saved === "object") {
       if (Array.isArray(saved.bins)) {
         S = Object.assign(S, saved);
+        S.bins = S.bins.map(function (b) { return Object.assign({}, BIN_OPTS, b); });
         S.bins.forEach(function (b) { nextId = Math.max(nextId, b.id + 1); });
       } else { // older single-bin save
         ADV_KEYS.concat(["caseType"]).forEach(function (k) { if (k in saved) S[k] = saved[k]; });
@@ -407,6 +434,14 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
   function drawOne(b, isOn) {
     var R = binRect(b);
     el("rect", { x: R.x + 2.5, y: R.y + 2.5, width: R.w - 5, height: R.h - 5, rx: 3, class: "bin" + (isOn ? " on" : "") }, binG);
+    if (b.stack) {
+      el("rect", { x: R.x + 7, y: R.y + 7, width: R.w - 14, height: R.h - 14, rx: 2, class: "stack-mark" }, binG);
+      var kx = (b.split === "w" || b.split === "4") ? 2 : 1, ky = (b.split === "n" || b.split === "4") ? 2 : 1;
+      var horiz = b.zone === "main"; // in the main block, W runs down the map and N runs across
+      var vx = horiz ? ky : kx, vy = horiz ? kx : ky;
+      for (var i = 1; i < vx; i++) el("line", { x1: R.x + R.w * i / vx, y1: R.y + 7, x2: R.x + R.w * i / vx, y2: R.y + R.h - 7, class: "stack-mark" }, binG);
+      for (var j = 1; j < vy; j++) el("line", { x1: R.x + 7, y1: R.y + R.h * j / vy, x2: R.x + R.w - 7, y2: R.y + R.h * j / vy, class: "stack-mark" }, binG);
+    }
     el("text", { x: R.x + R.w / 2, y: R.y + R.h / 2 + 6, "text-anchor": "middle", class: "bin-num" }, binG).textContent = idx(b);
   }
 
@@ -459,9 +494,30 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
   function dims(b) {
     var bx = b.w * S.pitchW - 2 * S.clearance, by = b.n * S.pitchN - 2 * S.clearance;
     var full = S.caseType === "L" ? S.hL : S.hM;
-    var h = b.ht === "half" ? full / 2 : b.ht === "custom" ? Math.min(b.customH, full) : full;
+    var h = b.stack ? lowerH(b) : b.ht === "half" ? full / 2 : b.ht === "custom" ? Math.min(b.customH, full) : full;
     var zb = b.feet !== "none" ? S.footH : 0, bodyH = h - zb;
     return { bx: bx, by: by, h: h, full: full, zb: zb, zt: h, bodyH: bodyH, ins: bodyH * Math.tan(S.draft * Math.PI / 180), zf: zb + S.floorT };
+  }
+  function caseH() { return S.caseType === "L" ? S.hL : S.hM; }
+  function lowerH(b) { var full = caseH(), v = b.lowerH > 0 ? b.lowerH : full / 2; return Math.max(15, Math.min(full - 15, v)); }
+  function trayH(b) { return caseH() - lowerH(b) + PLUG; }
+  function trays(b) { // footprints of the top tray(s), in the base bin's local coordinates
+    var D = dims(b), kx = (b.split === "w" || b.split === "4") ? 2 : 1, ky = (b.split === "n" || b.split === "4") ? 2 : 1;
+    var tx = (D.bx - (kx - 1) * TRAY_GAP) / kx, ty = (D.by - (ky - 1) * TRAY_GAP) / ky, out = [];
+    for (var i = 0; i < kx; i++) for (var j = 0; j < ky; j++)
+      out.push({ bx: tx, by: ty, cx: -D.bx / 2 + tx / 2 + i * (tx + TRAY_GAP), cy: -D.by / 2 + ty / 2 + j * (ty + TRAY_GAP) });
+    return out;
+  }
+  function buildTray(b, t) {
+    // Prints right side up. Plug (sits inside the bin below) -> 45 deg chamfer -> straight body.
+    var H = trayH(b), e = S.wall + PLUG_CLEAR, seg = 8, r = S.cornerR, dr = PLUG * Math.tan(S.draft * Math.PI / 180);
+    var px = t.bx - 2 * e, py = t.by - 2 * e, sh = [];
+    var P0 = ring(px - 2 * dr, py - 2 * dr, r - e, 0, seg), P1 = ring(px, py, r - e, PLUG, seg);
+    var B0 = ring(t.bx, t.by, r, PLUG + e, seg), B1 = ring(t.bx, t.by, r, H, seg);
+    var I1 = ring(t.bx - 2 * S.wall, t.by - 2 * S.wall, r - S.wall, H, seg);
+    var I0 = ring(px - 2 * dr - 2 * S.wall, py - 2 * dr - 2 * S.wall, r - e - S.wall, S.floorT, seg);
+    strip(sh, P0, P1); strip(sh, P1, B0); strip(sh, B0, B1); strip(sh, B1, I1); strip(sh, I1, I0); cap(sh, I0, true); cap(sh, P0, false);
+    return solid(sh);
   }
   function outerAt(D, z) { var k = 1 - (z - D.zb) / D.bodyH; return { x: D.bx - 2 * D.ins * k, y: D.by - 2 * D.ins * k }; }
   function innerAt(D, z) { var o = outerAt(D, z); return { x: o.x - 2 * S.wall, y: o.y - 2 * S.wall }; }
@@ -508,6 +564,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
 
     var ov = S.wall * 0.7, tt = 1.2;
     var z0 = D.zf - 0.05, z1 = D.zf + (D.zt - D.zf) * b.divPct / 100;
+    if (b.stack) z1 = Math.min(z1, D.zt - PLUG - 1); // leave room for the tray plug
     var a = innerAt(D, z0), bb = innerAt(D, z1);
     for (var i = 1; i < b.divW; i++) {
       var f = i / b.divW - 0.5, xa = f * a.x, xb = f * bb.x, ya = a.y / 2 + ov, yb = bb.y / 2 + ov;
@@ -518,6 +575,17 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
       var g = j / b.divN - 0.5, y0 = g * a.y, y1 = g * bb.y, x0 = a.x / 2 + ov, x1 = bb.x / 2 + ov;
       parts.push(hexa([[-x0, y0 - tt/2, z0], [x0, y0 - tt/2, z0], [x0, y0 + tt/2, z0], [-x0, y0 + tt/2, z0],
                        [-x1, y1 - tt/2, z1], [x1, y1 - tt/2, z1], [x1, y1 + tt/2, z1], [-x1, y1 + tt/2, z1]]));
+    }
+    if (b.stack && b.split !== "1") {
+      // support ribs under split lines, up to rim height, sized to sit between neighboring tray plugs
+      var rt = 2 * (S.wall + PLUG_CLEAR) + TRAY_GAP - 2 * PLUG_CLEAR, za = D.zf - 0.05, zr = D.zt;
+      var ia = innerAt(D, za), ir = innerAt(D, zr);
+      if (b.split === "w" || b.split === "4")
+        parts.push(hexa([[-rt/2, -ia.y/2 - ov, za], [rt/2, -ia.y/2 - ov, za], [rt/2, ia.y/2 + ov, za], [-rt/2, ia.y/2 + ov, za],
+                         [-rt/2, -ir.y/2 - ov, zr], [rt/2, -ir.y/2 - ov, zr], [rt/2, ir.y/2 + ov, zr], [-rt/2, ir.y/2 + ov, zr]]));
+      if (b.split === "n" || b.split === "4")
+        parts.push(hexa([[-ia.x/2 - ov, -rt/2, za], [ia.x/2 + ov, -rt/2, za], [ia.x/2 + ov, rt/2, za], [-ia.x/2 - ov, rt/2, za],
+                         [-ir.x/2 - ov, -rt/2, zr], [ir.x/2 + ov, -rt/2, zr], [ir.x/2 + ov, rt/2, zr], [-ir.x/2 - ov, rt/2, zr]]));
     }
     if (b.feet !== "none") {
       var bxH = ob.x / 2 - FOOT_INSET, byH = ob.y / 2 - FOOT_INSET, pts = [];
@@ -537,9 +605,17 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
   }
 
   // ================================================================ names and export
-  function codeOf(b) { return S.caseType + "-" + b.w + "x" + b.n + (b.ht === "half" ? "-half" : b.ht === "custom" ? "-" + Math.round(dims(b).h) + "mm" : ""); }
+  function codeOf(b) { return S.caseType + "-" + b.w + "x" + b.n + (b.stack ? "-stack" : b.ht === "half" ? "-half" : b.ht === "custom" ? "-" + Math.round(dims(b).h) + "mm" : ""); }
+  var SPLIT_NAME = { "1": "", w: "-split2w", n: "-split2n", "4": "-split4" };
+  function partsOf(b) {
+    if (!b.stack) return [{ stem: fileStem(b), make: function () { return buildBin(b); } }];
+    var t0 = trays(b)[0];
+    return [{ stem: fileStem(b), make: function () { return buildBin(b); } }]
+      .concat(trays(b).map(function () { return { stem: S.caseType + "-" + b.w + "x" + b.n + "-stack-top" + Math.round(trayH(b)) + SPLIT_NAME[b.split], make: function () { return buildTray(b, t0); } }; }));
+  }
   function fileStem(b) {
     var s = codeOf(b);
+    if (b.stack) s += "-base" + Math.round(lowerH(b)) + (b.split === "1" ? "" : "-rib" + b.split);
     if (b.divW > 1 || b.divN > 1) s += "-div" + b.divW + "x" + b.divN + (b.divPct < 100 ? "-" + b.divPct + "pct" : "");
     if (b.feet === "corners") s += "-feet"; else if (b.feet === "edge") s += "-edgefeet";
     return s;
@@ -547,7 +623,8 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
   function describe(b) {
     var bits = [];
     var D = dims(b);
-    bits.push(b.ht === "full" ? "full height" : b.ht === "half" ? "half height" : Math.round(D.h) + " mm tall");
+    if (b.stack) bits.push("stacked " + Math.round(lowerH(b)) + " + " + Math.round(trayH(b) - PLUG) + " mm" + ({ "1": "", w: " · 2 trays", n: " · 2 trays", "4": " · 4 trays" })[b.split]);
+    else bits.push(b.ht === "full" ? "full height" : b.ht === "half" ? "half height" : Math.round(D.h) + " mm tall");
     if (b.divW > 1 || b.divN > 1) bits.push(b.divW * b.divN + " sections");
     if (b.feet !== "none") bits.push(b.feet === "corners" ? "corner feet" : "edge feet");
     if (b.zone !== "main") bits.push("handle pocket");
@@ -587,16 +664,23 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
     end.setUint32(0, 0x06054b50, true); end.setUint16(8, files.length, true); end.setUint16(10, files.length, true); end.setUint32(12, cSize, true); end.setUint32(16, offset, true);
     return new Blob(locals.concat(central, [new Uint8Array(end.buffer)]), { type: "application/zip" });
   }
-  function groups(list) {
+  function groups(list) { // one entry per unique printable part, with every bin number that uses it
     var map = {}, order = [];
-    list.forEach(function (b) { var k = fileStem(b); if (!map[k]) { map[k] = { stem: k, bin: b, nums: [] }; order.push(k); } map[k].nums.push(idx(b)); });
+    list.forEach(function (b) {
+      partsOf(b).forEach(function (pt) {
+        if (!map[pt.stem]) { map[pt.stem] = { stem: pt.stem, make: pt.make, nums: [] }; order.push(pt.stem); }
+        map[pt.stem].nums.push(idx(b));
+      });
+    });
     return order.map(function (k) { return map[k]; });
   }
   function layoutText(list) {
     var lines = ["Storehouse " + (S.caseType === "M" ? "Medium" : "Large") + " case layout", list.length + " bins, " + usedCells() + " of " + TOTAL_CELLS + " cells used", ""];
     groups(list).forEach(function (g) {
-      lines.push(g.stem + (g.nums.length > 1 ? "-x" + g.nums.length : "") + ".stl  print " + g.nums.length + "  (bins " + g.nums.join(", ") + ")");
+      var bins = g.nums.filter(function (v, i, a) { return a.indexOf(v) === i; });
+      lines.push(g.stem + (g.nums.length > 1 ? "-x" + g.nums.length : "") + ".stl  print " + g.nums.length + "  (bin" + (bins.length > 1 ? "s " : " ") + bins.join(", ") + ")");
     });
+    if (list.some(function (b) { return b.stack; })) lines.push("", "Stacked bins: print the -base and -top files. Each top tray has a " + PLUG + " mm plug that drops inside its base's rim.");
     lines.push("", "Cell " + S.pitchW + " x " + S.pitchN + " mm (W x N). Clearance " + S.clearance + " mm per side. Wall " + S.wall + " mm.");
     return lines.join("\n");
   }
@@ -622,15 +706,16 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
   $("dlAll").addEventListener("click", function () {
     if (!S.bins.length) return;
     var gs = groups(S.bins);
-    var files = gs.map(function (g) { return { name: g.stem + (g.nums.length > 1 ? "-x" + g.nums.length : "") + ".stl", data: toSTL(buildBin(g.bin), g.stem) }; });
+    var files = gs.map(function (g) { return { name: g.stem + (g.nums.length > 1 ? "-x" + g.nums.length : "") + ".stl", data: toSTL(g.make(), g.stem) }; });
     files.push({ name: "layout.txt", data: layoutText(S.bins) });
     var name = "storehouse-" + S.caseType + "-layout-" + S.bins.length + "-bins.zip";
     save(name, zip(files), "Saved " + name + ": " + gs.length + " STL file" + (gs.length > 1 ? "s" : "") + " for " + S.bins.length + " bins, plus layout.txt.");
   });
   $("dlOne").addEventListener("click", function () {
     var b = sel(); if (!b) return;
-    var stem = "storehouse-" + fileStem(b);
-    save(stem + ".zip", zip([{ name: stem + ".stl", data: toSTL(buildBin(b), fileStem(b)) }]), "Saved " + stem + ".zip. Unzip it for the STL.");
+    var stem = "storehouse-" + fileStem(b), gs = groups([b]);
+    var files = gs.map(function (g) { return { name: g.stem + (g.nums.length > 1 ? "-x" + g.nums.length : "") + ".stl", data: toSTL(g.make(), g.stem) }; });
+    save(stem + ".zip", zip(files), "Saved " + stem + ".zip with " + files.length + " STL file" + (files.length > 1 ? "s" : "") + ".");
   });
 
   // ================================================================ 3D view
@@ -660,16 +745,18 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
       renderer: renderer, scene: scene, camera: camera, controls: controls, world: world, plate: plate, handle: handle,
       matOn: new THREE.MeshStandardMaterial({ color: 0xF2B200, roughness: 0.55, flatShading: true }),
       matOff: new THREE.MeshStandardMaterial({ color: 0xC7A55A, roughness: 0.7, flatShading: true }),
+      matTray: new THREE.MeshStandardMaterial({ color: 0xFFC933, roughness: 0.5, flatShading: true }),
       lineMat: new THREE.LineBasicMaterial({ color: 0x5a4300, transparent: true, opacity: 0.45 })
     };
     function resize() { var w = stage.clientWidth, h = stage.clientHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
     new ResizeObserver(resize).observe(stage); resize();
     (function loop() { requestAnimationFrame(loop); controls.update(); renderer.render(scene, camera); })();
   }
-  function geoFor(b) {
-    var k = JSON.stringify([fileStem(b), ADV_KEYS.map(function (q) { return S[q]; })]);
+  function geoFor(b) { return geoPart(fileStem(b), function () { return buildBin(b); }); }
+  function geoPart(stem, make) {
+    var k = JSON.stringify([stem, S.caseType, ADV_KEYS.map(function (q) { return S[q]; })]);
     if (!geoCache[k]) {
-      var tris = buildBin(b), pos = new Float32Array(tris.length * 9), o = 0;
+      var tris = make(), pos = new Float32Array(tris.length * 9), o = 0;
       tris.forEach(function (t) { for (var i = 0; i < 3; i++) { pos[o++] = t[i][0]; pos[o++] = t[i][1]; pos[o++] = t[i][2]; } });
       var g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(pos, 3)); g.computeVertexNormals();
       geoCache[k] = { mesh: g, edges: new THREE.EdgesGeometry(g, 35) };
@@ -680,6 +767,15 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
     var G = geoFor(b), inner = new THREE.Group();
     inner.rotation.x = -Math.PI / 2;
     inner.add(new THREE.Mesh(G.mesh, mat), new THREE.LineSegments(G.edges, three.lineMat));
+    if (b.stack) {
+      var tp = partsOf(b)[1], TG = geoPart(tp.stem, tp.make), lift = S.liftTrays ? 30 : 0;
+      trays(b).forEach(function (t) {
+        var tm = new THREE.Group();
+        tm.add(new THREE.Mesh(TG.mesh, mat === three.matOn ? three.matTray : three.matOff), new THREE.LineSegments(TG.edges, three.lineMat));
+        tm.position.set(t.cx, t.cy, lowerH(b) - PLUG + lift);
+        inner.add(tm);
+      });
+    }
     var outer = new THREE.Group(); outer.add(inner);
     return outer;
   }
@@ -701,7 +797,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
       frameKey = "case|" + S.caseType;
     } else if (on) {
       three.world.add(binObject(on, three.matOn));
-      frameKey = "bin|" + on.id + "|" + on.w + "x" + on.n + "|" + S.caseType + "|" + on.ht;
+      frameKey = "bin|" + on.id + "|" + on.w + "x" + on.n + "|" + S.caseType + "|" + on.ht + "|" + on.stack;
     }
     if (frameKey && frameKey !== lastFrame) {
       lastFrame = frameKey;
@@ -710,9 +806,9 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
         three.camera.position.set(170, 330 + hh, 420);
         three.controls.target.set(0, hh * 0.3, 10);
       } else {
-        var D = dims(on), sp = Math.max(D.bx, D.by, D.h), dist = sp * 2.4 + 40;
+        var D = dims(on), hh2 = on.stack ? caseH() : D.h, sp = Math.max(D.bx, D.by, hh2), dist = sp * 2.4 + 40;
         three.camera.position.set(dist * 0.62, dist * 0.62, dist * 0.78);
-        three.controls.target.set(0, D.h * 0.4, 0);
+        three.controls.target.set(0, hh2 * 0.4, 0);
       }
       three.controls.update();
     }
@@ -785,21 +881,28 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
     code.textContent = b ? codeOf(b) : "No bin";
     code.classList.toggle("empty", !b);
     $("codeMeta").innerHTML = b ? "<span>bin <b>" + idx(b) + "</b> of " + S.bins.length + " · slot <b>" + b.w * S.pitchW + " × " + b.n * S.pitchN + "</b> mm</span><span>" +
-      (S.caseType === "M" ? "Medium case" : "Large case") + " · <b>" + f1(D.h) + "</b> mm tall</span>" : "<span>Draw a bin on the floor grid.</span>";
+      (S.caseType === "M" ? "Medium case" : "Large case") + " · " + (b.stack ? "stacked <b>" + Math.round(D.h) + " + " + Math.round(trayH(b) - PLUG) + "</b> mm" : "<b>" + f1(D.h) + "</b> mm tall") + "</span>" : "<span>Draw a bin on the floor grid.</span>";
     setPressed("case", S.caseType); setPressed("view", S.view);
     // selected bin panel
     $("binGroup").classList.toggle("disabled", !b);
     if (b) {
       $("binWhich").textContent = "#" + idx(b) + " · " + codeOf(b);
       $("w-out").textContent = b.w; $("n-out").textContent = b.n;
-      setPressed("ht", b.ht); setPressed("feet", b.feet);
+      setPressed("ht", b.ht); setPressed("feet", b.feet); setPressed("stack", b.stack ? "on" : "off"); setPressed("split", b.split);
+      $("stackBox").hidden = !b.stack; $("heightBox").hidden = !!b.stack;
+      $("lowerH").min = 15; $("lowerH").max = caseH() - 15; $("lowerH").value = lowerH(b);
+      $("lowerH-v").textContent = Math.round(lowerH(b)) + " mm bin + " + Math.round(trayH(b) - PLUG) + " mm tray";
+      $("liftTrays").checked = !!S.liftTrays;
       $("customHField").hidden = b.ht !== "custom";
       $("customH").max = D.full; $("customH").value = Math.min(b.customH, D.full); $("customH-v").textContent = f1(Math.min(b.customH, D.full)) + " mm";
       $("divW").value = b.divW; $("divW-v").textContent = b.divW === 1 ? "none" : b.divW + " sections";
       $("divN").value = b.divN; $("divN-v").textContent = b.divN === 1 ? "none" : b.divN + " sections";
       $("divPct").value = b.divPct; $("divPct-v").textContent = b.divPct + "%";
       var ob = outerAt(D, D.zb), inn = innerAt(D, D.zt);
-      $("specs").innerHTML = [["Top outside", f1(D.bx) + " × " + f1(D.by)], ["Bottom outside", f1(ob.x) + " × " + f1(ob.y)], ["Inside at rim", f1(inn.x) + " × " + f1(inn.y)], ["Height", f1(D.h) + " mm"]]
+      var t0 = b.stack ? trays(b)[0] : null;
+      $("specs").innerHTML = (b.stack
+        ? [["Bottom bin top", f1(D.bx) + " × " + f1(D.by)], ["Usable below tray", f1(D.h - S.floorT - PLUG) + " mm"], ["Each tray", f1(t0.bx) + " × " + f1(t0.by)], ["Heights", Math.round(D.h) + " + " + Math.round(trayH(b) - PLUG) + " mm"]]
+        : [["Top outside", f1(D.bx) + " × " + f1(D.by)], ["Bottom outside", f1(ob.x) + " × " + f1(ob.y)], ["Inside at rim", f1(inn.x) + " × " + f1(inn.y)], ["Height", f1(D.h) + " mm"]])
         .map(function (s) { return '<div class="spec"><span>' + s[0] + "</span><b>" + s[1] + "</b></div>"; }).join("");
     } else {
       $("binWhich").textContent = ""; $("specs").innerHTML = "";
@@ -820,6 +923,10 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
   document.querySelectorAll("[data-case]").forEach(function (x) { x.addEventListener("click", function () { S.caseType = x.getAttribute("data-case"); update(); }); });
   document.querySelectorAll("[data-view]").forEach(function (x) { x.addEventListener("click", function () { S.view = x.getAttribute("data-view"); update(); }); });
   document.querySelectorAll("[data-ht]").forEach(function (x) { x.addEventListener("click", function () { var b = sel(); if (b) { b.ht = x.getAttribute("data-ht"); update(); } }); });
+  document.querySelectorAll("[data-stack]").forEach(function (x) { x.addEventListener("click", function () { var b = sel(); if (b) { b.stack = x.getAttribute("data-stack") === "on"; update(); } }); });
+  document.querySelectorAll("[data-split]").forEach(function (x) { x.addEventListener("click", function () { var b = sel(); if (b) { b.split = x.getAttribute("data-split"); update(); } }); });
+  $("liftTrays").addEventListener("change", function () { S.liftTrays = $("liftTrays").checked; update(); });
+  $("lowerH").addEventListener("input", function () { var b = sel(); if (b) { b.lowerH = +$("lowerH").value; update(); } });
   document.querySelectorAll("[data-feet]").forEach(function (x) { x.addEventListener("click", function () { var b = sel(); if (b) { b.feet = x.getAttribute("data-feet"); update(); } }); });
   function resize(dw, dn) {
     var b = sel(); if (!b) return;
@@ -860,7 +967,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
   function scadText(b) {
     return [
       "case_type = \"" + S.caseType + "\";", "cells_w = " + b.w + ";", "cells_n = " + b.n + ";",
-      "half_height = " + (b.ht === "half") + ";", "custom_height = " + (b.ht === "custom" ? f1(dims(b).h) : 0) + ";",
+      "half_height = " + (!b.stack && b.ht === "half") + ";", "custom_height = " + (b.stack || b.ht === "custom" ? f1(dims(b).h) : 0) + ";",
       "div_w = " + b.divW + ";", "div_n = " + b.divN + ";", "divider_height_pct = " + b.divPct + ";",
       "feet = \"" + (b.feet === "edge" ? "perimeter" : b.feet) + "\";",
       "pitch_w = " + S.pitchW + ";", "pitch_n = " + S.pitchN + ";", "height_M = " + S.hM + ";", "height_L = " + S.hL + ";",
@@ -872,7 +979,8 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
     var b = sel(); if (!b) return;
     var txt = scadText(b), box = $("copyFallback");
     function fallback() { box.hidden = false; box.value = txt; box.focus(); box.select(); say("Select and copy the settings below."); }
-    try { navigator.clipboard.writeText(txt).then(function () { box.hidden = true; say("Bin " + idx(b) + " settings copied. Paste them over the top of storehouse_bin.scad."); }, fallback); }
+    var note = b.stack ? " The SCAD file builds the bottom bin only; download the top trays from here." : "";
+    try { navigator.clipboard.writeText(txt).then(function () { box.hidden = true; say("Bin " + idx(b) + " settings copied. Paste them over the top of storehouse_bin.scad." + note); }, fallback); }
     catch (e) { fallback(); }
   });
 
