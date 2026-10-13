@@ -120,7 +120,12 @@ header { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content:
 .field label, .field .lab { font-size: .9rem; }
 .field .val { font-family: var(--mono); font-size: .8rem; color: var(--muted); font-variant-numeric: tabular-nums; }
 .field input[type=range] { grid-column: 1 / -1; width: 100%; accent-color: var(--bin-deep); }
-.field input[type=text] { grid-column: 1 / -1; width: 100%; box-sizing: border-box; font: inherit; font-family: var(--mono); font-size: .9rem; text-transform: uppercase; padding: 6px 8px; border: 1px solid var(--line); border-radius: 3px; background: var(--bg); color: var(--ink); }
+#labelGrids { display: grid; gap: 8px; }
+.lgrid { display: grid; gap: 4px; }
+.lgrid-name { font-size: .8rem; color: var(--muted); }
+.lgrid .cells { display: grid; gap: 4px; }
+.lgrid .cell { width: 100%; min-width: 0; box-sizing: border-box; font: inherit; font-family: var(--mono); font-size: .88rem; text-transform: uppercase; text-align: center; padding: 6px 4px; border: 1px solid var(--line); border-radius: 3px; background: var(--bg); color: var(--ink); }
+.lgrid .cell.bad { border-color: #c25a00; }
 .field input[type=number] { width: 84px; font: inherit; font-family: var(--mono); font-size: .85rem; padding: 4px 6px; border: 1px solid var(--line); border-radius: 3px; background: var(--bg); color: var(--ink); }
 .nest { border-left: 2px solid var(--line); padding-left: 12px; display: grid; gap: 10px; }
 .pair { display: grid; grid-template-columns: 96px 1fr; gap: 8px 10px; align-items: center; }
@@ -275,14 +280,10 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
           </div>
         </div>
 
-        <div class="field">
-          <label for="label" id="label-lab">Label</label><span class="val" id="label-v"></span>
-          <input type="text" id="label" maxlength="24" autocomplete="off" spellcheck="false" placeholder="e.g. M3 NUTS">
+        <div class="row">
+          <div class="field"><span class="lab">Labels</span><span class="val" id="label-v"></span></div>
+          <div id="labelGrids"></div>
         </div>
-        <div class="field" id="trayLabelF0" hidden><label for="trayLabel0" id="trayLabel0-lab">Tray</label><span class="val" id="trayLabel0-v"></span><input type="text" id="trayLabel0" maxlength="24" autocomplete="off" spellcheck="false"></div>
-        <div class="field" id="trayLabelF1" hidden><label for="trayLabel1" id="trayLabel1-lab">Tray</label><span class="val" id="trayLabel1-v"></span><input type="text" id="trayLabel1" maxlength="24" autocomplete="off" spellcheck="false"></div>
-        <div class="field" id="trayLabelF2" hidden><label for="trayLabel2" id="trayLabel2-lab">Tray</label><span class="val" id="trayLabel2-v"></span><input type="text" id="trayLabel2" maxlength="24" autocomplete="off" spellcheck="false"></div>
-        <div class="field" id="trayLabelF3" hidden><label for="trayLabel3" id="trayLabel3-lab">Tray</label><span class="val" id="trayLabel3-v"></span><input type="text" id="trayLabel3" maxlength="24" autocomplete="off" spellcheck="false"></div>
         <label class="check" id="plateWrap" title="The label shelf with no letters, for a sticker or a marker"><input type="checkbox" id="labelPlate"> Blank label plate</label>
         <div class="pair" id="labelSideBox" hidden>
           <span class="lab">Label wall</span>
@@ -370,7 +371,8 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
 
   // ================================================================ state
   var MEASURED = { wall: 1.6, floorT: 1.6, cornerR: 3, draft: 1.5, clearance: 0.25, pitchW: 54, pitchN: 40, hM: 50, hL: 94, footD: 5, footH: 1.6, plugDepth: 4, plugClear: 0.4, labelDepth: 6, labelFace: 10 };
-  var BIN_OPTS = { ht: "full", customH: 30, divW: 1, divN: 1, divPct: 100, feet: "none", stack: false, lowerH: 0, split: "1", trayDivW: 1, trayDivN: 1, label: "", labelSide: "back", labelPlate: false, trayLabels: [] };
+  var BIN_OPTS = { ht: "full", customH: 30, divW: 1, divN: 1, divPct: 100, feet: "none", stack: false, lowerH: 0, split: "1", trayDivW: 1, trayDivN: 1, labels: {}, labelSide: "back", labelPlate: false, trayLabels: [] };
+  var STEP_LIMITS = { divW: [1, 8], divN: [1, 10], trayDivW: [1, 6], trayDivN: [1, 8] };
   var TRAY_GAP = 0.6; // stacking: gap between split trays (plug depth and clearance live in S)
   var DIVIDER_T = 1.2; // divider wall thickness
   var LABEL = { raise: 0.5, stroke: 0.8, capMax: 6, capMin: 3.5, maxLen: 24 }; // raised label letters, mm
@@ -379,7 +381,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
   var nextId = 1;
 
   function newBin(zone, c, r, w, n, opts) {
-    return Object.assign({ id: nextId++, zone: zone, c: c, r: r, w: w, n: n }, BIN_OPTS, { trayLabels: [] }, opts || {});
+    return Object.assign({ id: nextId++, zone: zone, c: c, r: r, w: w, n: n }, BIN_OPTS, { labels: {}, trayLabels: [] }, opts || {});
   }
 
   var S = Object.assign({ caseType: "M", view: "case", bins: [], selId: null }, MEASURED);
@@ -459,11 +461,13 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
     Object.keys(BIN_ENUMS).forEach(function (k) { if (BIN_ENUMS[k].indexOf(b[k]) < 0) b[k] = BIN_OPTS[k]; });
     ["customH", "divW", "divN", "divPct", "lowerH", "trayDivW", "trayDivN"].forEach(function (k) { if (!isNum(b[k])) b[k] = BIN_OPTS[k]; });
     b.stack = !!b.stack;
-    b.label = typeof b.label === "string" ? b.label.slice(0, LABEL.maxLen) : "";
     b.labelPlate = !!b.labelPlate;
-    b.trayLabels = (Array.isArray(b.trayLabels) ? b.trayLabels : []).slice(0, 4).map(function (t) { return typeof t === "string" ? t.slice(0, LABEL.maxLen) : ""; });
+    Object.keys(STEP_LIMITS).forEach(function (k) { b[k] = Math.min(STEP_LIMITS[k][1], Math.max(STEP_LIMITS[k][0], Math.round(b[k]))); });
+    // labels are maps keyed "row,col" as seen from the front; older saves had one string per part
+    b.labels = cleanLabelMap(raw.labels, gridShape(b, b.divW, b.divN)) || spreadLabel(b, b.divW, b.divN, raw.label);
+    b.trayLabels = (Array.isArray(raw.trayLabels) ? raw.trayLabels : []).slice(0, 4).map(function (m) { return cleanLabelMap(m, gridShape(b, b.trayDivW, b.trayDivN)) || spreadLabel(b, b.trayDivW, b.trayDivN, m); });
     return { id: b.id, zone: b.zone, c: b.c, r: b.r, w: b.w, n: b.n, ht: b.ht, customH: b.customH, divW: b.divW, divN: b.divN, divPct: b.divPct,
-             feet: b.feet, stack: b.stack, lowerH: b.lowerH, split: b.split, trayDivW: b.trayDivW, trayDivN: b.trayDivN, label: b.label, labelSide: b.labelSide, labelPlate: b.labelPlate, trayLabels: b.trayLabels };
+             feet: b.feet, stack: b.stack, lowerH: b.lowerH, split: b.split, trayDivW: b.trayDivW, trayDivN: b.trayDivN, labels: b.labels, labelSide: b.labelSide, labelPlate: b.labelPlate, trayLabels: b.trayLabels };
   }
   function addSavedBin(raw) {
     var b = cleanBin(raw);
@@ -609,7 +613,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
     var i0x = t.bx - 2 * e - 2 * dr - 2 * S.wall, i0y = t.by - 2 * e - 2 * dr - 2 * S.wall, i1x = t.bx - 2 * S.wall, i1y = t.by - 2 * S.wall;
     return function (z) { var k = (z - S.floorT) / (H - S.floorT); return { x: i0x + (i1x - i0x) * k, y: i0y + (i1y - i0y) * k }; };
   }
-  function buildTray(b, t, hOverride, clearOverride, text) {
+  function buildTray(b, t, hOverride, clearOverride, labels) {
     // Prints right side up. Plug (sits inside the bin below) -> 45 deg chamfer -> straight body.
     var H = hOverride || trayH(b), plugClear = clearOverride != null ? clearOverride : S.plugClear;
     var e = S.wall + plugClear, seg = 8, r = S.cornerR, dr = S.plugDepth * Math.tan(S.draft * Math.PI / 180);
@@ -620,9 +624,9 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
     var I0 = ring(px - 2 * dr - 2 * S.wall, py - 2 * dr - 2 * S.wall, r - e - S.wall, S.floorT, seg);
     strip(sh, P0, P1); strip(sh, P1, B0); strip(sh, B0, B1); strip(sh, B1, I1); strip(sh, I1, I0); cap(sh, I0, true); cap(sh, P0, false);
     var parts = [solid(sh)];
-    var inner = trayInner(t, H, e, dr), z0 = S.floorT - 0.05, LF = labelFit(b, inner, H, S.floorT, text || "");
-    var lab = LF && !LF.noRoom ? labelShelf(parts, inner, LF) : null;
-    dividerWalls(parts, b.trayDivW, b.trayDivN, inner, z0, H, lab);
+    var inner = trayInner(t, H, e, dr), z0 = S.floorT - 0.05;
+    var labs = labelShelves(parts, b, { nW: b.trayDivW, nN: b.trayDivN, labels: labels || {}, inner: inner, zTop: H, zDivTop: H, zFloor: S.floorT });
+    dividerWalls(parts, b.trayDivW, b.trayDivN, inner, z0, H, labs);
     return flatten(parts);
   }
   // Divider walls: nW across W (perpendicular to x) and nN across N, from zlo to zhi. inner(z) gives the inner outline at z.
@@ -633,15 +637,19 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
   // A box between two opposite walls: perpendicular to axis p (0 = x, 1 = y) at fraction f of the inner width, t thick.
   // It runs a little into the walls so the slicer unions it with the shell. Where it meets the label wall (lab), it stops
   // short of the label face at full height and only continues to the wall underneath the shelf.
-  function spanBox(parts, inner, p, f, t, zlo, zhi, lab) {
-    var K = ["x", "y"], s = 1 - p, ov = S.wall * 0.7;
+  function spanBox(parts, inner, p, f, t, zlo, zhi, labs) {
+    var K = ["x", "y"], s = 1 - p, ov = S.wall * 0.7, lab = null;
+    if (labs && labs.length) { // does this box run into a label shelf on the wall it meets?
+      var pos0 = f * inner(zlo)[K[p]];
+      labs.forEach(function (L) { if (L.p === s && zhi > L.zUnder && pos0 > L.sLo && pos0 < L.sHi) lab = L; });
+    }
     function ext(z) { return inner(z)[K[s]] / 2 + ov; }
     function corners(z, lo, hi) {
       var pos = f * inner(z)[K[p]], a = pos - t / 2, c = pos + t / 2;
       return p === 0 ? [[a, lo, z], [c, lo, z], [c, hi, z], [a, hi, z]] : [[lo, a, z], [hi, a, z], [hi, c, z], [lo, c, z]];
     }
     function box(zA, eA, zB, eB) { parts.push(hexa(corners(zA, eA[0], eA[1]).concat(corners(zB, eB[0], eB[1])))); }
-    if (lab && lab.p === s && zhi > lab.zUnder) {
+    if (lab) {
       var edge = lab.uIn - 0.5, sg = lab.sign, zs = Math.min(zhi, lab.zUnder + 0.5);
       function ends(z, upper) {
         var e = ext(z);
@@ -752,41 +760,91 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
   function binLabelTop(D, b) { return b.stack ? D.zt - S.plugDepth - 1 : D.zt; } // the shelf sits under the tray plug on a stacked bin
   // Where the shelf and letters go for one part, or null without a label. inner(z) is the inner outline at height z,
   // zTop is where the shelf meets the wall. Short parts get a smaller shelf; long labels get smaller letters, then fewer.
-  function trayLabel(b, k) { return cleanLabel((b.trayLabels || [])[k]); }
-  function hasShelf(b) { return !!(b.labelPlate || cleanLabel(b.label) || (b.stack && trays(b).some(function (t, k) { return trayLabel(b, k); }))); }
-  // Where the shelf and letters go for one part, given that part's (already cleaned) text, or null without a shelf.
-  function labelFit(b, inner, zTop, zFloor, text) {
-    if (!text && !b.labelPlate) return null;
-    var f = labelFace(b), K = ["x", "y"], p = f.p, s = 1 - p;
-    var sc = Math.min(1, (zTop - zFloor - 0.5) / (S.labelFace + S.labelDepth));
-    if (sc < 0.5) return { text: text, noRoom: true };
-    var FH = S.labelFace * sc, X = S.labelDepth * sc, zMid = zTop - FH, zUnder = zMid - X;
-    var L = inner(zUnder)[K[s]] - 2 * (Math.max(S.cornerR - S.wall, 0.5) + 0.5);
-    var capMax = Math.min(LABEL.capMax, Math.hypot(FH, X) - 3), shown = text, cap = capMax;
-    if (text) {
+  // ---- compartments. Labels live in a map keyed "row,col" as seen from the front: row 0 is nearest, col 0 is leftmost.
+  function gridShape(b, nW, nN) { return b.zone === "main" ? { rows: nW, cols: nN } : { rows: nN, cols: nW }; }
+  function cellToLocal(b, nW, nN, r, c) { return b.zone === "main" ? { ix: r, iy: nN - 1 - c } : { ix: c, iy: r }; } // compartment indexes along x (W) and y (N)
+  function cleanLabelMap(m, sh) { // a saved label map with only cells inside the grid and string values, or null if it isn't a map at all
+    if (!m || typeof m !== "object" || Array.isArray(m)) return null;
+    var out = {};
+    Object.keys(m).forEach(function (k) {
+      var rc = /^(\d{1,2}),(\d{1,2})$/.exec(k);
+      if (rc && +rc[1] < sh.rows && +rc[2] < sh.cols && typeof m[k] === "string" && m[k]) out[k] = m[k].slice(0, LABEL.maxLen);
+    });
+    return out;
+  }
+  function spreadLabel(b, nW, nN, text) { // an old single label goes on every compartment along the far wall
+    var out = {}; if (typeof text !== "string" || !cleanLabel(text)) return out;
+    var sh = gridShape(b, nW, nN);
+    for (var c = 0; c < sh.cols; c++) out[(sh.rows - 1) + "," + c] = text.slice(0, LABEL.maxLen);
+    return out;
+  }
+  function mapTexts(m) { return Object.keys(m || {}).map(function (k) { return cleanLabel(m[k]); }).filter(Boolean); }
+  function partLabelMaps(b) { return [b.labels || {}].concat(b.stack ? trays(b).map(function (t, k) { return (b.trayLabels || [])[k] || {}; }) : []); }
+  function hasShelf(b) { return !!(b.labelPlate || partLabelMaps(b).some(function (m) { return mapTexts(m).length; })); }
+  function dividerTop(b, D) { var z1 = D.zf + (D.zt - D.zf) * b.divPct / 100; return b.stack ? Math.min(z1, D.zt - S.plugDepth - 1) : z1; } // leave room for the tray plug
+  // One shelf per compartment that has text (or a blank plate): on the label wall for the row touching it, otherwise on
+  // the near face of the divider between the compartment and the next one toward the wall.
+  // P describes a part: nW, nN, labels, inner(z), zTop (shelf top at the wall), zDivTop (top of its dividers), zFloor.
+  function shelfSegments(b, P) {
+    var f = labelFace(b), p = f.p, sg = f.sign, s = 1 - p, K = ["x", "y"];
+    var np = p === 0 ? P.nW : P.nN, ns = p === 0 ? P.nN : P.nW, t = DIVIDER_T, ov = S.wall * 0.7;
+    var corner = Math.max(S.cornerR - S.wall, 0.5) + 0.5, sh = gridShape(b, P.nW, P.nN), segs = [];
+    for (var r = 0; r < sh.rows; r++) for (var c = 0; c < sh.cols; c++) (function (r, c) {
+      var key = r + "," + c, text = cleanLabel((P.labels || {})[key]);
+      if (!text && !b.labelPlate) return;
+      var L = cellToLocal(b, P.nW, P.nN, r, c), ip = p === 0 ? L.ix : L.iy, is = p === 0 ? L.iy : L.ix;
+      var atWall = sg > 0 ? ip === np - 1 : ip === 0, m = sg > 0 ? ip + 1 : ip; // m: the divider on the wall side of this compartment
+      function wp(z) { return P.inner(z)[K[p]]; }
+      function ws(z) { return P.inner(z)[K[s]]; }
+      function div(z) { return sg * (-wp(z) / 2 + m * wp(z) / np); } // that divider's center, as a distance toward the wall
+      // distances toward the label wall ("u"): where the shelf's back and its face meet the boundary
+      function uBack(z) { return atWall ? wp(z) / 2 + ov : div(z) + t / 2 - 0.2; }
+      function uFace(z) { return atWall ? wp(z) / 2 : div(z) - t / 2; }
+      function depth(z) { return wp(z) / np - (atWall ? t / 2 : t); } // how deep the compartment is, toward the wall
+      function sRange(z) { // the compartment's extent along the wall, clear of dividers and corners
+        var w = ws(z);
+        return [-w / 2 + is * w / ns + (is === 0 ? corner : t / 2 + 0.5), -w / 2 + (is + 1) * w / ns - (is === ns - 1 ? corner : t / 2 + 0.5)];
+      }
+      segs.push({ key: key, text: text, p: p, s: s, sign: sg, atWall: atWall, uBack: uBack, uFace: uFace, depth: depth, sRange: sRange, zTop: atWall ? P.zTop : Math.min(P.zTop, P.zDivTop) });
+    })(r, c);
+    return segs;
+  }
+  // Shelf and letter sizes for one segment, or noRoom. Short parts get a smaller shelf; long text gets smaller letters, then fewer.
+  function labelFitSeg(seg, zFloor) {
+    var sc = Math.min(1, (seg.zTop - zFloor - 0.5) / (S.labelFace + S.labelDepth));
+    if (sc < 0.5) return { seg: seg, text: seg.text, noRoom: true };
+    var FH = S.labelFace * sc, X = S.labelDepth * sc, zMid = seg.zTop - FH, zUnder = zMid - X;
+    var a = seg.sRange(zUnder), c = seg.sRange(seg.zTop), lo = Math.max(a[0], c[0]), hi = Math.min(a[1], c[1]), L = hi - lo;
+    if (L < 8 || seg.depth(zMid) < X + 4) return { seg: seg, text: seg.text, noRoom: true };
+    var capMax = Math.min(LABEL.capMax, Math.hypot(FH, X) - 3), shown = seg.text, cap = capMax;
+    if (shown) {
       cap = Math.min(capMax, (L - 3) / labelUnits(shown));
       while (cap < LABEL.capMin && shown.length > 1) { shown = shown.slice(0, -1).trim(); cap = Math.min(capMax, (L - 3) / labelUnits(shown)); }
+      if (cap < LABEL.capMin) return { seg: seg, text: seg.text, noRoom: true };
     }
-    if (cap < LABEL.capMin || L < 8) return { text: text, noRoom: true };
-    return { text: text, shown: shown, dropped: text.length - shown.length, cap: cap, p: p, s: s, sign: f.sign,
-             zTop: zTop, zMid: zMid, zUnder: zUnder, L: L, uIn: inner(zMid)[K[p]] / 2 - X, ov: S.wall * 0.7 };
+    return { seg: seg, text: seg.text, shown: shown, dropped: seg.text.length - shown.length, cap: cap, zMid: zMid, zUnder: zUnder, sLo: lo, sHi: hi, uIn: seg.uFace(zMid) - X };
   }
-  // The shelf: a triangular prism fused to the inside of the wall just below zTop. Its face slopes up toward the viewer
-  // and carries the letters; its underside runs back to the wall at 45 degrees so it prints without supports.
-  // Returns what spanBox needs to keep dividers off the face.
-  function labelShelf(parts, inner, F) {
-    var K = ["x", "y"], p = F.p, sg = F.sign, h = F.L / 2, uIn = sg * F.uIn;
-    function uWall(z) { return sg * (inner(z)[K[p]] / 2 + F.ov); }
-    function pt(u, v, z) { return p === 0 ? [u, v, z] : [v, u, z]; }
-    var uTop = uWall(F.zTop), uUnder = uWall(F.zUnder);
-    parts.push(prism6([pt(uTop, -h, F.zTop), pt(uIn, -h, F.zMid), pt(uUnder, -h, F.zUnder), pt(uTop, h, F.zTop), pt(uIn, h, F.zMid), pt(uUnder, h, F.zUnder)]));
-    // a frame on the face: origin at its center, hv = reading direction along the wall, qv = up the slope, nv = out of the face
-    var uFace = sg * inner(F.zTop)[K[p]] / 2, du = uFace - uIn, dz = F.zTop - F.zMid, len = Math.hypot(du, dz);
-    var ep = p === 0 ? [1, 0, 0] : [0, 1, 0];
-    var hv = p === 0 ? [0, -sg, 0] : [sg, 0, 0];
-    var qv = [ep[0] * du / len, ep[1] * du / len, dz / len], nv = cross(hv, qv);
-    if (F.shown) labelLetters(parts, F.shown, F.cap, pt((uFace + uIn) / 2, 0, (F.zTop + F.zMid) / 2), hv, qv, nv);
-    return { p: p, sign: sg, uIn: F.uIn, zUnder: F.zUnder };
+  // The shelf: a triangular prism fused to its boundary just below the top. Its face slopes up toward the viewer and
+  // carries the letters; its underside runs back at 45 degrees so it prints without supports. Returns clip info for spanBox.
+  function labelShelf(parts, F) {
+    var seg = F.seg, p = seg.p, sg = seg.sign;
+    function pt(u, v, z) { var cp = sg * u; return p === 0 ? [cp, v, z] : [v, cp, z]; }
+    var uTop = seg.uBack(seg.zTop), uUnder = seg.uBack(F.zUnder);
+    parts.push(prism6([pt(uTop, F.sLo, seg.zTop), pt(F.uIn, F.sLo, F.zMid), pt(uUnder, F.sLo, F.zUnder), pt(uTop, F.sHi, seg.zTop), pt(F.uIn, F.sHi, F.zMid), pt(uUnder, F.sHi, F.zUnder)]));
+    if (F.shown) {
+      // a frame on the face: origin at its center, hv = reading direction along the wall, qv = up the slope, nv = out of the face
+      var uFace = seg.uFace(seg.zTop), du = sg * (uFace - F.uIn), dz = seg.zTop - F.zMid, len = Math.hypot(du, dz);
+      var ep = p === 0 ? [1, 0, 0] : [0, 1, 0], hv = p === 0 ? [0, -sg, 0] : [sg, 0, 0];
+      var qv = [ep[0] * du / len, ep[1] * du / len, dz / len], nv = cross(hv, qv);
+      labelLetters(parts, F.shown, F.cap, pt((uFace + F.uIn) / 2, (F.sLo + F.sHi) / 2, (seg.zTop + F.zMid) / 2), hv, qv, nv);
+    }
+    return { p: p, sign: sg, atWall: seg.atWall, uIn: F.uIn, zUnder: F.zUnder, sLo: F.sLo, sHi: F.sHi };
+  }
+  // Every shelf of a part. Returns the wall shelves, which spanBox keeps ribs off of.
+  function labelShelves(parts, b, P) {
+    var labs = [];
+    shelfSegments(b, P).forEach(function (seg) { var F = labelFitSeg(seg, P.zFloor); if (!F.noRoom) { var c = labelShelf(parts, F); if (c.atWall) labs.push(c); } });
+    return labs;
   }
   function labelLetters(parts, text, cap, o, hv, qv, nv) {
     var hw = LABEL.stroke / 2, n0 = -0.3, n1 = LABEL.raise; // letters start inside the shelf so they fuse with it
@@ -815,16 +873,14 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
     strip(sh, O0, O1); strip(sh, O1, I1); strip(sh, I1, I0); cap(sh, I0, true); cap(sh, O0, false);
     parts.push(solid(sh));
 
-    var z0 = D.zf - 0.05, z1 = D.zf + (D.zt - D.zf) * b.divPct / 100;
-    if (b.stack) z1 = Math.min(z1, D.zt - S.plugDepth - 1); // leave room for the tray plug
-    var innerB = function (z) { return innerAt(D, z); }, LF = labelFit(b, innerB, binLabelTop(D, b), D.zf, cleanLabel(b.label));
-    var lab = LF && !LF.noRoom ? labelShelf(parts, innerB, LF) : null;
-    dividerWalls(parts, b.divW, b.divN, innerB, z0, z1, lab);
+    var z0 = D.zf - 0.05, z1 = dividerTop(b, D), innerB = function (z) { return innerAt(D, z); };
+    var labs = labelShelves(parts, b, { nW: b.divW, nN: b.divN, labels: b.labels, inner: innerB, zTop: binLabelTop(D, b), zDivTop: z1, zFloor: D.zf });
+    dividerWalls(parts, b.divW, b.divN, innerB, z0, z1, labs);
     if (b.stack && b.split !== "1") {
       // support ribs under split lines, up to rim height, sized to sit between neighboring tray plugs
       var rt = 2 * S.wall + TRAY_GAP, sp = splitOf(b.split);
-      if (sp.kx === 2) spanBox(parts, innerB, 0, 0, rt, D.zf - 0.05, D.zt, lab);
-      if (sp.ky === 2) spanBox(parts, innerB, 1, 0, rt, D.zf - 0.05, D.zt, lab);
+      if (sp.kx === 2) spanBox(parts, innerB, 0, 0, rt, D.zf - 0.05, D.zt, labs);
+      if (sp.ky === 2) spanBox(parts, innerB, 1, 0, rt, D.zf - 0.05, D.zt, labs);
     }
     if (b.feet !== "none") {
       var bxH = ob.x / 2 - FOOT_INSET, byH = ob.y / 2 - FOOT_INSET, pts = [];
@@ -848,15 +904,15 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
   function partsOf(b) { // every printable part of a bin: the bin itself, plus one entry per tray when stacked
     var base = { stem: fileStem(b), make: function () { return buildBin(b); } };
     if (!b.stack) return [base];
-    var ts = trays(b); // every tray has the same footprint; only its label can differ
+    var ts = trays(b); // every tray has the same footprint; only its labels can differ
     return [base].concat(ts.map(function (t, k) {
-      var text = trayLabel(b, k);
-      return { stem: trayStem(b, text), make: function () { return buildTray(b, ts[0], undefined, undefined, text); } };
+      var m = (b.trayLabels || [])[k] || {};
+      return { stem: trayStem(b, m), make: function () { return buildTray(b, ts[0], undefined, undefined, m); } };
     }));
   }
-  function trayStem(b, text) {
+  function trayStem(b, m) {
     return S.caseType + "-" + b.w + "x" + b.n + "-stack-top" + Math.round(trayH(b)) + SPLIT_NAME[b.split] +
-      (b.trayDivW > 1 || b.trayDivN > 1 ? "-div" + b.trayDivW + "x" + b.trayDivN : "") + labelStem(b, text);
+      (b.trayDivW > 1 || b.trayDivN > 1 ? "-div" + b.trayDivW + "x" + b.trayDivN : "") + labelStem(b, m, b.trayDivW, b.trayDivN);
   }
   // What to call each tray in the panel, as seen from the front of the case
   function trayNames(b) {
@@ -868,16 +924,18 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
     }
     return out.map(function (n) { return n.charAt(0).toUpperCase() + n.slice(1); });
   }
-  function labelStem(b, t) { // t: that part's cleaned text
-    if (!t && !b.labelPlate) return "";
-    return (t ? "-lbl-" + t.replace(/[^A-Z0-9]+/g, "_") : "-plate") + (b.labelSide !== "back" ? "-" + b.labelSide : "");
+  function labelStem(b, m, nW, nN) { // a part's label map in its file name: cells far to near, left to right
+    var sh = gridShape(b, nW, nN), cells = [], any = false;
+    for (var r = sh.rows - 1; r >= 0; r--) for (var c = 0; c < sh.cols; c++) { var t = cleanLabel((m || {})[r + "," + c]); if (t) any = true; cells.push(t.replace(/[^A-Z0-9]+/g, "-")); }
+    if (!any && !b.labelPlate) return "";
+    return (any ? "-lbl-" + cells.join("_") : "-plate") + (b.labelSide !== "back" ? "-" + b.labelSide : "");
   }
   function fileStem(b) {
     var s = codeOf(b);
     if (b.stack) s += "-base" + Math.round(lowerH(b)) + (b.split === "1" ? "" : "-rib" + b.split);
     if (b.divW > 1 || b.divN > 1) s += "-div" + b.divW + "x" + b.divN + (b.divPct < 100 ? "-" + b.divPct + "pct" : "");
     if (b.feet === "corners") s += "-feet"; else if (b.feet === "edge") s += "-edgefeet";
-    return s + labelStem(b, cleanLabel(b.label));
+    return s + labelStem(b, b.labels, b.divW, b.divN);
   }
   function describe(b) {
     var bits = [];
@@ -887,7 +945,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
     else bits.push(b.ht === "full" ? "full height" : b.ht === "half" ? "half height" : Math.round(D.h) + " mm tall");
     if (b.divW > 1 || b.divN > 1) bits.push(b.divW * b.divN + " sections");
     if (b.feet !== "none") bits.push(b.feet === "corners" ? "corner feet" : "edge feet");
-    var labels = [cleanLabel(b.label)].concat(b.stack ? trays(b).map(function (t, k) { return trayLabel(b, k); }) : []).filter(Boolean);
+    var labels = []; partLabelMaps(b).forEach(function (m) { labels = labels.concat(mapTexts(m)); });
     if (labels.length) bits.push(labels.map(function (l) { return '"' + l + '"'; }).join(" ")); else if (b.labelPlate) bits.push("blank label plate");
     if (b.zone !== "main") bits.push("handle pocket");
     return bits.join(" · ");
@@ -1200,35 +1258,63 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
     $("customH").max = D.full; $("customH").value = Math.min(b.customH, D.full); $("customH-v").textContent = f1(Math.min(b.customH, D.full)) + " mm";
     $("divW-out").textContent = b.divW; $("divN-out").textContent = b.divN;
     $("divPct").value = b.divPct; $("divPct-v").textContent = b.divPct + "%";
-    if (document.activeElement !== $("label")) $("label").value = b.label;
-    $("label-lab").textContent = b.stack ? "Bottom bin label" : "Label";
-    $("label-v").textContent = labelNote(b, D);
-    var names = b.stack ? trayNames(b) : [], allText = !!cleanLabel(b.label);
-    for (var k = 0; k < 4; k++) {
-      var f = $("trayLabelF" + k), inp = $("trayLabel" + k);
-      f.hidden = k >= names.length; if (f.hidden) continue;
-      $("trayLabel" + k + "-lab").textContent = names[k] + " label";
-      if (document.activeElement !== inp) inp.value = (b.trayLabels || [])[k] || "";
-      $("trayLabel" + k + "-v").textContent = trayLabelNote(b, k);
-      if (!trayLabel(b, k)) allText = false;
-    }
-    $("labelPlate").checked = !!b.labelPlate; $("plateWrap").hidden = allText; // with text everywhere the shelves are there anyway
+    var allText = renderLabelGrids(b, D);
+    $("labelPlate").checked = !!b.labelPlate; $("plateWrap").hidden = allText; // with text in every compartment the shelves are there anyway
     $("labelSideBox").hidden = !hasShelf(b); setPressed("side", b.labelSide);
     $("specs").innerHTML = specRows(b, D).map(function (s) { return '<div class="spec"><span>' + s[0] + "</span><b>" + s[1] + "</b></div>"; }).join("");
   }
-  function fitNote(F, text, what) {
-    if (!F) return "";
-    if (F.noRoom) return "no room for a shelf on this " + what;
+  function fitNote(F, text) {
+    if (F.noRoom) return "no room for a shelf here";
     if (!text) return "blank plate";
     return f1(F.cap) + " mm letters" + (F.dropped ? " · " + F.shown.length + " of " + text.length + " fit" : "");
   }
-  function labelNote(b, D) {
-    var text = cleanLabel(b.label);
-    return fitNote(labelFit(b, function (z) { return innerAt(D, z); }, binLabelTop(D, b), D.zf, text), text, "bin");
+  // The parts of the selected bin that carry labels, with what the fit check and the grid need
+  function labelParts(b, D) {
+    var P = [{ name: b.stack ? "Bottom bin" : "", nW: b.divW, nN: b.divN, labels: b.labels || {}, inner: function (z) { return innerAt(D, z); },
+               zTop: binLabelTop(D, b), zDivTop: dividerTop(b, D), zFloor: D.zf, set: function (k, v) { b.labels = b.labels || {}; b.labels[k] = v; } }];
+    if (b.stack) {
+      var t = trays(b)[0], H = trayH(b), inner = trayInner(t, H, S.wall + S.plugClear, S.plugDepth * Math.tan(S.draft * Math.PI / 180));
+      trayNames(b).forEach(function (name, k) {
+        P.push({ name: name, nW: b.trayDivW, nN: b.trayDivN, labels: (b.trayLabels || [])[k] || {}, inner: inner, zTop: H, zDivTop: H, zFloor: S.floorT,
+                 set: function (key, v) { b.trayLabels = b.trayLabels || []; b.trayLabels[k] = b.trayLabels[k] || {}; b.trayLabels[k][key] = v; } });
+      });
+    }
+    return P;
   }
-  function trayLabelNote(b, k) {
-    var text = trayLabel(b, k), t = trays(b)[0], H = trayH(b), e = S.wall + S.plugClear, dr = S.plugDepth * Math.tan(S.draft * Math.PI / 180);
-    return fitNote(labelFit(b, trayInner(t, H, e, dr), H, S.floorT, text), text, "tray");
+  var gridsFor = "", labelNotes = {}; // what the label cells in the DOM were built for, and each cell's fit note
+  function renderLabelGrids(b, D) { // one small grid of text cells per part, shaped like its compartments as seen from the front
+    var parts = labelParts(b, D), box = $("labelGrids");
+    var sig = [b.id, b.zone, b.split, parts.map(function (P) { return P.nW + "x" + P.nN; }).join("|")].join("|");
+    if (sig !== gridsFor) { // rebuild the cells only when the layout changes, so typing keeps focus
+      gridsFor = sig; box.innerHTML = "";
+      parts.forEach(function (P, pi) {
+        var sh = gridShape(b, P.nW, P.nN), g = document.createElement("div"); g.className = "lgrid";
+        if (P.name) { var nm = document.createElement("div"); nm.className = "lgrid-name"; nm.textContent = P.name; g.appendChild(nm); }
+        var cells = document.createElement("div"); cells.className = "cells"; cells.style.gridTemplateColumns = "repeat(" + sh.cols + ", minmax(0, 1fr))";
+        for (var r = sh.rows - 1; r >= 0; r--) for (var c = 0; c < sh.cols; c++) { // far row on top, like the floor map
+          var inp = document.createElement("input"); inp.type = "text"; inp.className = "cell"; inp.maxLength = LABEL.maxLen; inp.autocomplete = "off"; inp.spellcheck = false;
+          inp.dataset.part = pi; inp.dataset.key = r + "," + c; inp.placeholder = sh.rows * sh.cols > 1 ? "" : "e.g. M3 NUTS";
+          inp.setAttribute("aria-label", (P.name || "Bin") + " label, row " + (r + 1) + " column " + (c + 1));
+          cells.appendChild(inp);
+        }
+        g.appendChild(cells); box.appendChild(g);
+      });
+    }
+    var allText = true; labelNotes = {};
+    parts.forEach(function (P, pi) {
+      var fits = {}; shelfSegments(b, P).forEach(function (seg) { fits[seg.key] = labelFitSeg(seg, P.zFloor); });
+      box.querySelectorAll('.cell[data-part="' + pi + '"]').forEach(function (inp) {
+        var key = inp.dataset.key, raw = P.labels[key] || "", text = cleanLabel(raw), F = fits[key];
+        if (document.activeElement !== inp) inp.value = raw;
+        if (!text) allText = false;
+        var note = F ? fitNote(F, text) : "";
+        inp.title = note; inp.classList.toggle("bad", !!(F && (F.noRoom || F.dropped)));
+        labelNotes[pi + ":" + key] = note;
+      });
+    });
+    var a = document.activeElement;
+    $("label-v").textContent = a && a.classList && a.classList.contains("cell") ? labelNotes[a.dataset.part + ":" + a.dataset.key] || "" : "";
+    return allText;
   }
   function specRows(b, D) {
     if (b.stack) {
@@ -1284,16 +1370,19 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
   $("n-minus").addEventListener("click", function () { resize(0, -1); });
   $("n-plus").addEventListener("click", function () { resize(0, 1); });
   ["divPct", "customH"].forEach(function (k) { $(k).addEventListener("input", function () { var b = sel(); if (b) { b[k] = +$(k).value; update(); } }); });
-  var STEP_LIMITS = { divW: [1, 8], divN: [1, 10], trayDivW: [1, 6], trayDivN: [1, 8] };
   Object.keys(STEP_LIMITS).forEach(function (k) {
     function bump(d) { var b = sel(); if (!b) return; var v = Math.min(STEP_LIMITS[k][1], Math.max(STEP_LIMITS[k][0], b[k] + d)); if (v !== b[k]) { b[k] = v; update(); } }
     $(k + "-minus").addEventListener("click", function () { bump(-1); });
     $(k + "-plus").addEventListener("click", function () { bump(1); });
   });
-  $("label").addEventListener("input", function () { var b = sel(); if (b) { b.label = $("label").value.slice(0, LABEL.maxLen); update(); } });
-  [0, 1, 2, 3].forEach(function (k) {
-    $("trayLabel" + k).addEventListener("input", function () { var b = sel(); if (b) { b.trayLabels = b.trayLabels || []; b.trayLabels[k] = $("trayLabel" + k).value.slice(0, LABEL.maxLen); update(); } });
+  $("labelGrids").addEventListener("input", function (e) {
+    var inp = e.target; if (!inp.classList.contains("cell")) return;
+    var b = sel(); if (!b) return;
+    var P = labelParts(b, dims(b))[+inp.dataset.part];
+    if (P) { P.set(inp.dataset.key, inp.value.slice(0, LABEL.maxLen)); update(); }
   });
+  $("labelGrids").addEventListener("focusin", function (e) { var inp = e.target; if (inp.classList.contains("cell")) $("label-v").textContent = labelNotes[inp.dataset.part + ":" + inp.dataset.key] || ""; });
+  $("labelGrids").addEventListener("focusout", function () { $("label-v").textContent = ""; });
   $("labelPlate").addEventListener("change", function () { var b = sel(); if (b) { b.labelPlate = $("labelPlate").checked; update(); } });
   document.querySelectorAll("[data-side]").forEach(function (x) { x.addEventListener("click", function () { var b = sel(); if (b) { b.labelSide = x.getAttribute("data-side"); update(); } }); });
   ADV_KEYS.forEach(function (k) {
@@ -1306,7 +1395,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
   $("resetAdv").addEventListener("click", function () { Object.assign(S, MEASURED); update(); });
   $("applyAll").addEventListener("click", function () {
     var b = sel(); if (!b) return;
-    var keys = Object.keys(BIN_OPTS).filter(function (k) { return k !== "label" && k !== "labelSide" && k !== "labelPlate" && k !== "trayLabels"; }); // labels stay per bin
+    var keys = Object.keys(BIN_OPTS).filter(function (k) { return k !== "labels" && k !== "labelSide" && k !== "labelPlate" && k !== "trayLabels"; }); // labels stay per bin
     S.bins.forEach(function (o) { keys.forEach(function (k) { o[k] = b[k]; }); });
     say("Applied bin " + idx(b) + "'s height, dividers and feet to all " + S.bins.length + " bins."); update();
   });
@@ -1328,6 +1417,20 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
     }
   });
 
+  // The label map as an OpenSCAD vector: rows counted from the label wall inward, columns along the wall from -W/-N to +W/+N
+  function scadLabels(b, m, nW, nN) {
+    var f = labelFace(b), p = f.p, np = p === 0 ? nW : nN, ns = p === 0 ? nN : nW, rows = [];
+    for (var i = 0; i < np; i++) {
+      var row = [];
+      for (var j = 0; j < ns; j++) {
+        var ip = f.sign > 0 ? np - 1 - i : i, ix = p === 0 ? ip : j, iy = p === 0 ? j : ip;
+        var r = b.zone === "main" ? ix : iy, c = b.zone === "main" ? nN - 1 - iy : ix;
+        row.push('"' + cleanLabel((m || {})[r + "," + c]).replace(/[\\"]/g, "") + '"');
+      }
+      rows.push("[" + row.join(", ") + "]");
+    }
+    return "[" + rows.join(", ") + "]";
+  }
   function scadText(b) {
     return [
       "case_type = \"" + S.caseType + "\";", "cells_w = " + b.w + ";", "cells_n = " + b.n + ";",
@@ -1337,7 +1440,8 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
       "tray_div_w = " + b.trayDivW + ";", "tray_div_n = " + b.trayDivN + ";",
       "div_w = " + b.divW + ";", "div_n = " + b.divN + ";", "divider_height_pct = " + b.divPct + ";",
       "feet = \"" + (b.feet === "edge" ? "perimeter" : b.feet) + "\";",
-      "label = \"" + cleanLabel(b.label).replace(/[\\"]/g, "") + "\";" + (b.stack && trays(b).some(function (t, k) { return trayLabel(b, k); }) ? "  // trays: " + trays(b).map(function (t, k) { return "\"" + trayLabel(b, k) + "\""; }).join(", ") + " (set label to each when rendering part = \"tray\")" : ""), "label_wall = \"" + (labelFace(b).p === 0 ? "W" : "N") + (labelFace(b).sign > 0 ? "+" : "-") + "\";",
+      "label = \"\";", "labels = " + scadLabels(b, b.labels, b.divW, b.divN) + ";  // rows from the label wall inward, columns along it" +
+        (b.stack ? "  trays: " + trays(b).map(function (t, k) { return scadLabels(b, (b.trayLabels || [])[k], b.trayDivW, b.trayDivN); }).join(" ") + " (use for part = \"tray\")" : ""),
       "label_plate = " + !!b.labelPlate + ";", "label_depth = " + S.labelDepth + ";", "label_face = " + S.labelFace + ";",
       "pitch_w = " + S.pitchW + ";", "pitch_n = " + S.pitchN + ";", "height_M = " + S.hM + ";", "height_L = " + S.hL + ";",
       "clearance = " + S.clearance + ";", "wall = " + S.wall + ";", "floor_t = " + S.floorT + ";",

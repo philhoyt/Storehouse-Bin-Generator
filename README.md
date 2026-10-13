@@ -67,16 +67,18 @@ Select a bin and switch it to **Stacked**. Before printing big ones, grab **Fit 
 
 Type a label and the bin gets raised letters on a small shelf inside the wall farthest from you. The shelf's face tilts toward you, so you can read it through the lid with parts in the bin. It prints without supports: the face slopes up, and the underside runs back to the wall at 45°.
 
+Divided bins get a grid of label cells shaped like the compartments, far row on top, left to right as you face the case. A compartment against the far wall gets its shelf on the wall. A compartment behind a divider gets its shelf on that divider, so every compartment can carry its own label.
+
 - Letters, numbers, space, and `- . / +`. Lowercase prints as capitals.
 - Tick **Blank label plate** for the shelf with no letters, for a sticker or a marker.
 - Letters are up to 6 mm tall. A long label gets smaller letters, down to 3.5 mm, then loses characters off the end. The panel says what fits.
 - The shelf reaches 6 mm into the bin and its face is 10 mm tall. Both are under **Fit and print**. Short bins get a smaller shelf.
-- Stacked bins get a label field for the bottom bin and one for each tray, named by where the tray sits as seen from the front. Trays with the same text share one STL.
-- Dividers that run into the label wall stop just short of the face, and continue to the wall only underneath the shelf.
+- Stacked bins get a grid for the bottom bin and one for each tray, named by where the tray sits as seen from the front. Trays with the same labels share one STL.
+- Shelves sit between the dividers, so dividers never cut through a label.
 
 ## OpenSCAD
 
-`storehouse_bin.scad` builds the same bins in OpenSCAD with the Customizer, labels included (set `label` and `label_wall`; OpenSCAD uses a real font, the app uses a stroke font). Stacked bins too: render once with `part = "base"` and once with `part = "tray"`. In the web app, **Copy OpenSCAD settings** gives you a block to paste over the top of the file.
+`storehouse_bin.scad` builds the same bins in OpenSCAD with the Customizer, labels included (set `label` for one label along the wall, or `labels` for one per compartment, plus `label_wall`; OpenSCAD uses a real font, the app uses a stroke font). Stacked bins too: render once with `part = "base"` and once with `part = "tray"`. In the web app, **Copy OpenSCAD settings** gives you a block to paste over the top of the file.
 
 ## Files
 
