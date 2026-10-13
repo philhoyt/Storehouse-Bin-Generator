@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { createState, restoreState, makeBin, MEASURED } from "../src/state.js";
+import { createState, restoreState, makeBin } from "../src/state.js";
 import { canPlace, findSpot, binAt, stockLayout, TOTAL_CELLS, usedCells } from "../src/layout.js";
 
 test("restore drops bad bins and resets bad fields", () => {

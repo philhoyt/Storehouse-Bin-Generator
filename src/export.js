@@ -46,7 +46,6 @@ function createExport(S, geo) {
   var dims = geo.dims, lowerH = geo.lowerH, trayH = geo.trayH, trays = geo.trays, buildBin = geo.buildBin, buildTray = geo.buildTray, caseName = geo.caseName, partLabelMaps = geo.partLabelMaps;
   function idx(b) { return S.bins.indexOf(b) + 1; }
   function codeOf(b) { return S.caseType + "-" + b.w + "x" + b.n + (b.stack ? "-stack" : b.ht === "half" ? "-half" : b.ht === "custom" ? "-" + Math.round(dims(b).h) + "mm" : ""); }
-  var SPLIT_NAME = { "1": "", w: "-split2w", n: "-split2n", "4": "-split4" };
   function partsOf(b) { // every printable part of a bin: the bin itself, plus one entry per tray when stacked
     var base = { stem: fileStem(b), make: function () { return buildBin(b); } };
     if (!b.stack) return [base];

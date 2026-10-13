@@ -27,7 +27,7 @@ function ring(w, h, r, z, seg) {
   return pts;
 }
 function strip(tris, a, b) { var n = a.length; for (var i = 0; i < n; i++) { var j = (i + 1) % n; tris.push([a[i], a[j], b[j]], [a[i], b[j], b[i]]); } }
-function cap(tris, p, up) {
+function capFace(tris, p, up) {
   var c = [0, 0, 0]; p.forEach(function (q) { c[0] += q[0]; c[1] += q[1]; c[2] += q[2]; });
   c = c.map(function (v) { return v / p.length; });
   for (var i = 0; i < p.length; i++) { var j = (i + 1) % p.length; tris.push(up ? [c, p[i], p[j]] : [c, p[j], p[i]]); }
@@ -45,7 +45,7 @@ function hexa(v) {
 function cylinder(x, y, z0, z1, d, seg) {
   var t = [], r = d / 2, bot = [], top = [];
   for (var i = 0; i < seg; i++) { var a = 2 * Math.PI * i / seg; bot.push([x + r * cosz(a), y + r * sinz(a), z0]); top.push([x + r * cosz(a), y + r * sinz(a), z1]); }
-  strip(t, bot, top); cap(t, top, true); cap(t, bot, false);
+  strip(t, bot, top); capFace(t, top, true); capFace(t, bot, false);
   return solid(t);
 }
 
@@ -111,7 +111,7 @@ function createGeometry(S) {
     var B0 = ring(t.bx, t.by, r, S.plugDepth + e, seg), B1 = ring(t.bx, t.by, r, H, seg);
     var I1 = ring(t.bx - 2 * S.wall, t.by - 2 * S.wall, r - S.wall, H, seg);
     var I0 = ring(px - 2 * dr - 2 * S.wall, py - 2 * dr - 2 * S.wall, r - e - S.wall, S.floorT, seg);
-    strip(sh, P0, P1); strip(sh, P1, B0); strip(sh, B0, B1); strip(sh, B1, I1); strip(sh, I1, I0); cap(sh, I0, true); cap(sh, P0, false);
+    strip(sh, P0, P1); strip(sh, P1, B0); strip(sh, B0, B1); strip(sh, B1, I1); strip(sh, I1, I0); capFace(sh, I0, true); capFace(sh, P0, false);
     var parts = [solid(sh)];
     var inner = trayInner(t, H, e, dr), z0 = S.floorT - 0.05;
     var labs = labelShelves(parts, b, { nW: b.trayDivW, nN: b.trayDivN, labels: labels || {}, inner: inner, zTop: H, zDivTop: H, zFloor: S.floorT });
@@ -167,7 +167,7 @@ function createGeometry(S) {
     var f = labelFace(b), p = f.p, sg = f.sign, s = 1 - p, K = ["x", "y"];
     var np = p === 0 ? P.nW : P.nN, ns = p === 0 ? P.nN : P.nW, t = DIVIDER_T, ov = S.wall * 0.7;
     var corner = Math.max(S.cornerR - S.wall, 0.5) + 0.5, sh = gridShape(b, P.nW, P.nN), segs = [];
-    for (var r = 0; r < sh.rows; r++) for (var c = 0; c < sh.cols; c++) (function (r, c) {
+    function cellSegment(r, c) {
       var key = r + "," + c, text = cleanLabel((P.labels || {})[key]);
       if (!text && !b.labelPlate) return;
       var L = cellToLocal(b, P.nW, P.nN, r, c), ip = p === 0 ? L.ix : L.iy, is = p === 0 ? L.iy : L.ix;
@@ -184,7 +184,8 @@ function createGeometry(S) {
         return [-w / 2 + is * w / ns + (is === 0 ? corner : t / 2 + 0.5), -w / 2 + (is + 1) * w / ns - (is === ns - 1 ? corner : t / 2 + 0.5)];
       }
       segs.push({ key: key, text: text, p: p, s: s, sign: sg, atWall: atWall, uBack: uBack, uFace: uFace, depth: depth, sRange: sRange, zTop: atWall ? P.zTop : Math.min(P.zTop, P.zDivTop) });
-    })(r, c);
+    }
+    for (var r = 0; r < sh.rows; r++) for (var c = 0; c < sh.cols; c++) cellSegment(r, c);
     return segs;
   }
   // Shelf and letter sizes for one segment, or noRoom. Short parts get a smaller shelf; long text gets smaller letters, then fewer.
@@ -230,7 +231,7 @@ function createGeometry(S) {
     var sh = [];
     var O0 = ring(ob.x, ob.y, r - D.ins, D.zb, seg), O1 = ring(D.bx, D.by, r, D.zt, seg);
     var I1 = ring(it.x, it.y, r - S.wall, D.zt, seg), I0 = ring(ifl.x, ifl.y, r - S.wall - D.ins, D.zf, seg);
-    strip(sh, O0, O1); strip(sh, O1, I1); strip(sh, I1, I0); cap(sh, I0, true); cap(sh, O0, false);
+    strip(sh, O0, O1); strip(sh, O1, I1); strip(sh, I1, I0); capFace(sh, I0, true); capFace(sh, O0, false);
     parts.push(solid(sh));
 
     var z0 = D.zf - 0.05, z1 = dividerTop(b, D), innerB = function (z) { return innerAt(D, z); };
@@ -263,4 +264,4 @@ function createGeometry(S) {
            hasShelf: hasShelf, partLabelMaps: partLabelMaps };
 }
 
-export { createGeometry, flatten, ring, strip, cap, signedVol, solid, hexa, prism6, cylinder, cross, labelLetters, sincos, tanDeg };
+export { createGeometry, flatten, ring, strip, capFace, signedVol, solid, hexa, prism6, cylinder, cross, labelLetters, sincos, tanDeg };

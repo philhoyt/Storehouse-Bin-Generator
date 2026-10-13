@@ -79,10 +79,11 @@ Divided bins get a grid of label cells shaped like the compartments, far row on 
 ## Development
 
 ```bash
-npm test
+npm install
+npm run check
 ```
 
-No dependencies. The tests run on Node's built-in runner. The golden tests hash the exported zips for a set of layouts and compare them with values recorded from the real UI, so any change to the geometry or the export format shows up as a failure; re-record them only when the change is intended. The mesh code uses its own trig series instead of `Math.sin` and friends so that every JavaScript engine produces the same bytes.
+`npm run check` lints with ESLint and runs the tests; `npm run lint` and `npm test` do each on its own. ESLint is the only dependency. The tests run on Node's built-in runner. The golden tests hash the exported zips for a set of layouts and compare them with values recorded from the real UI, so any change to the geometry or the export format shows up as a failure; re-record them only when the change is intended. The mesh code uses its own trig series instead of `Math.sin` and friends so that every JavaScript engine produces the same bytes.
 
 ## OpenSCAD
 

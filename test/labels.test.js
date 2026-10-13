@@ -36,7 +36,7 @@ test("saved label maps keep only cells inside the grid; old single labels spread
 });
 
 test("shelves go on the wall for the far row and on the divider for nearer rows", () => {
-  const { S, geo, newBin } = fresh("M");
+  const { geo, newBin } = fresh("M");
   const b = newBin("main", 0, 0, 2, 2, { divW: 2, divN: 2 }), D = geo.dims(b);
   b.labels = { "1,0": "M4", "0,0": "NUTS" };
   const segs = geo.shelfSegments(b, { nW: 2, nN: 2, labels: b.labels, inner: z => geo.innerAt(D, z), zTop: D.zt, zDivTop: geo.dividerTop(b, D), zFloor: D.zf });
@@ -49,7 +49,7 @@ test("shelves go on the wall for the far row and on the divider for nearer rows"
 });
 
 test("long text shrinks then truncates; tiny compartments get no shelf", () => {
-  const { S, geo, newBin } = fresh("M");
+  const { geo, newBin } = fresh("M");
   const b = newBin("left", 0, 0, 1, 1), D = geo.dims(b);
   b.labels = { "0,0": "ABCDEFGHIJKLMNOPQRSTUVWX" };
   const seg = geo.shelfSegments(b, { nW: 1, nN: 1, labels: b.labels, inner: z => geo.innerAt(D, z), zTop: D.zt, zDivTop: D.zt, zFloor: D.zf })[0];

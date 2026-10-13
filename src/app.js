@@ -1,6 +1,6 @@
 // The page: state, the floor map, the panel, the 3D view, downloads. Everything that touches the DOM lives here.
 import * as layout from "./layout.js";
-import { MAP, MAIN_H, STRIP_H, FLOOR_W, ZONE_W, zones, TOTAL_CELLS, PRESETS, span, sizeFromSpan, binRect } from "./layout.js";
+import { MAP, MAIN_H, STRIP_H, FLOOR_W, ZONE_W, zones, TOTAL_CELLS, PRESETS, sizeFromSpan, binRect } from "./layout.js";
 import { MEASURED, BIN_OPTS, STEP_LIMITS, ADV_KEYS, ADV_LIMITS, makeBin, createState, restoreState } from "./state.js";
 import { LABEL, f1, splitOf, cleanLabel, gridShape, trayNames } from "./bins.js";
 import { createGeometry, tanDeg } from "./geometry.js";
@@ -13,8 +13,8 @@ import { createExport, zip } from "./export.js";
   var nextId = 1;
   function newBin(zone, c, r, w, n, opts) { return makeBin(nextId++, zone, c, r, w, n, opts); }
   var S = createState();
-  try { nextId = restoreState(S, JSON.parse(localStorage.getItem("sbb-state-v4") || "null")); } catch (e) {}
-  function persist() { try { localStorage.setItem("sbb-state-v4", JSON.stringify(S)); } catch (e) {} }
+  try { nextId = restoreState(S, JSON.parse(localStorage.getItem("sbb-state-v4") || "null")); } catch (e) { /* no usable storage: start fresh */ }
+  function persist() { try { localStorage.setItem("sbb-state-v4", JSON.stringify(S)); } catch (e) { /* storage full or blocked: keep going */ } }
 
   var $ = function (id) { return document.getElementById(id); };
   function sel() { for (var i = 0; i < S.bins.length; i++) if (S.bins[i].id === S.selId) return S.bins[i]; return null; }
@@ -214,8 +214,8 @@ import { createExport, zip } from "./export.js";
       matTray: new THREE.MeshStandardMaterial({ color: 0xFFC933, roughness: 0.5, flatShading: true }),
       lineMat: new THREE.LineBasicMaterial({ color: 0x5a4300, transparent: true, opacity: 0.45 })
     };
-    function resize() { var w = stage.clientWidth, h = stage.clientHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
-    new ResizeObserver(resize).observe(stage); resize();
+    function fitStage() { var w = stage.clientWidth, h = stage.clientHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+    new ResizeObserver(fitStage).observe(stage); fitStage();
     (function loop() { requestAnimationFrame(loop); controls.update(); renderer.render(scene, camera); })();
   }
   function geoFor(b) { return geoPart(fileStem(b), function () { return buildBin(b); }); }

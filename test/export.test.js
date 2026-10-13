@@ -37,7 +37,7 @@ test("file names describe the bin, and matching bins share one file", async () =
   assert.deepEqual(gs.map(g => [g.stem, g.nums]), [["M-1x2", [1, 2]], ["M-1x2-div2x1-50pct-feet", [3]]]);
   const files = await unzip(ex.allBinsFiles().files);
   assert.deepEqual(files.map(f => f.name), ["M-1x2-x2.stl", "M-1x2-div2x1-50pct-feet.stl", "layout.txt"]);
-  assert.match(files[2].text, /M-1x2-x2\.stl  print 2  \(bins 1, 2\)/);
+  assert.match(files[2].text, /M-1x2-x2\.stl {2}print 2 {2}\(bins 1, 2\)/);
 });
 
 test("stacked bins export a base and trays, trays with the same labels share a file", async () => {

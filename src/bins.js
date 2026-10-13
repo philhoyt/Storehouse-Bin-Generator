@@ -49,7 +49,7 @@ var FONT = {
   "+": [[[.35,.2],[.35,.8]], [[.05,.5],[.65,.5]]],
   "'": [[[.35,1],[.35,.78]]]
 };
-function cleanLabel(t) { return String(t || "").toUpperCase().replace(/[^A-Z0-9 \-.\/+']/g, "").replace(/\s+/g, " ").trim().slice(0, LABEL.maxLen); }
+function cleanLabel(t) { return String(t || "").toUpperCase().replace(/[^A-Z0-9 \-./+']/g, "").replace(/\s+/g, " ").trim().slice(0, LABEL.maxLen); }
 function labelAdvance(ch) { return ch === " " ? SPACE_ADV : GLYPH_ADV; }
 function labelUnits(text) { var u = 0; for (var i = 0; i < text.length; i++) u += labelAdvance(text[i]); return u - (GLYPH_ADV - GLYPH_W); }
 function labelFace(b) {

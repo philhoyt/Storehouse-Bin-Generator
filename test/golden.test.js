@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { fresh, hashZip, applyAll } from "./helpers.js";
 
 test("Medium stock layout, download all", async () => {
-  const { S, ex, stock } = fresh("M"); stock();
+  const { ex, stock } = fresh("M"); stock();
   assert.equal(await hashZip(ex.allBinsFiles().files), "c68c3c4a4a9554ba:44154");
 });
 
