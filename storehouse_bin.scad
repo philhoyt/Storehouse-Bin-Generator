@@ -1,6 +1,6 @@
 // =====================================================================
 // STOREHOUSE Bin Generator  (Harbor Freight Medium 20-bin + Large 8-bin)
-// v0.4  —  grid from caliper measurements. Pairs with the Storehouse Bin Builder web app
+// v0.5  —  grid from caliper measurements. Pairs with the Storehouse Bin Builder web app
 // =====================================================================
 //
 // THE GRID LANGUAGE
@@ -40,6 +40,14 @@ divider_height_pct = 100; // [20:5:100]
 
 /* [Feet] */
 feet = "none";    // [none:None (prints flat, no supports), corners:Corners (like stock), perimeter:Every cell corner on the edge]
+
+/* [Label] */
+label       = "";     // raised text on a sloped shelf inside one wall. Letters, numbers, space - . / +
+label_wall  = "W+";   // [W+:+W wall, W-:-W wall, N+:+N wall, N-:-N wall]  (Copy OpenSCAD settings in the app picks the wall farthest from you)
+label_depth = 6;      // mm the shelf reaches into the bin
+label_face  = 10;     // mm, height of the sloped face the letters sit on
+label_raise = 0.5;    // mm the letters stand off the face
+label_font  = "Liberation Sans:style=Bold";
 
 /* [Stacking] */
 stack        = false;
@@ -116,6 +124,61 @@ module tapered(x, y, h, r, ins) {
     }
 }
 
+// ------------------------------------------------ label shelf
+// A triangular prism fused to the inside of one wall just below z_top. Its face slopes up toward the viewer and
+// carries the letters; its underside runs back to the wall at 45 degrees, so it prints without supports.
+lab_p  = (label_wall == "W+" || label_wall == "W-") ? 0 : 1;   // 0: wall perpendicular to W (x), 1: perpendicular to N (y)
+lab_s  = (label_wall == "W+" || label_wall == "N+") ? 1 : -1;
+lab_ov = wall * 0.7;
+lab_ep = lab_p == 0 ? [1, 0, 0] : [0, 1, 0];
+lab_es = lab_p == 0 ? [0, 1, 0] : [1, 0, 0];
+function bin_inner(z, axis)  = (axis == 0 ? bin_x : bin_y) - 2 * wall - 2 * inset * (1 - z / body_h);
+function tray_inner(z, axis) = let(a = (axis == 0 ? tr_px - 2 * tr_dr : tr_py - 2 * tr_dr) - 2 * wall, b = (axis == 0 ? tray_x : tray_y) - 2 * wall)
+                               a + (b - a) * (z - floor_t) / (tray_h + 1 - floor_t);
+function lab_inner(z, axis, tray) = tray ? tray_inner(z, axis) : bin_inner(z, axis);
+function lab_scale(z_top) = min(1, (z_top - floor_t - 0.5) / (label_face + label_depth));  // shrink the shelf on short parts
+
+module label_shelf(z_top, tray = false) {
+    sc = lab_scale(z_top);
+    if (label != "" && sc >= 0.5) {
+        fh = label_face * sc;  xd = label_depth * sc;
+        z_mid = z_top - fh;  z_under = z_mid - xd;
+        u_top   = lab_inner(z_top, lab_p, tray) / 2 + lab_ov;
+        u_face  = lab_inner(z_top, lab_p, tray) / 2;        // where the face meets the wall surface
+        u_in    = lab_inner(z_mid, lab_p, tray) / 2 - xd;
+        u_under = lab_inner(z_under, lab_p, tray) / 2 + lab_ov;
+        L = lab_inner(z_under, 1 - lab_p, tray) - 2 * (max(corner_r - wall, 0.5) + 0.5);
+        face_len = norm([u_face - u_in, fh]);
+        cap = min(6, face_len - 3, (L - 3) / (0.8 * len(label)));
+        // the prism: a triangle in the (u, z) plane, extruded along the wall
+        multmatrix([[lab_ep[0] * lab_s, 0, lab_es[0], 0], [lab_ep[1] * lab_s, 0, lab_es[1], 0], [0, 1, 0, 0], [0, 0, 0, 1]])
+            linear_extrude(L, center = true) polygon([[u_top, z_top], [u_in, z_mid], [u_under, z_under]]);
+        // the letters: text drawn in a frame on the face (h = reading direction, q = up the slope, n = out of the face)
+        if (cap >= 3.5) {
+            c = lab_ep * lab_s * (u_face + u_in) / 2 + [0, 0, (z_top + z_mid) / 2];
+            q = (lab_ep * lab_s * (u_face - u_in) + [0, 0, fh]) / face_len;
+            h = cross(lab_ep * lab_s, [0, 0, 1]);
+            n = cross(h, q);
+            multmatrix([[h[0], q[0], n[0], c[0]], [h[1], q[1], n[1], c[1]], [h[2], q[2], n[2], c[2]], [0, 0, 0, 1]])
+                translate([0, 0, -0.3]) linear_extrude(label_raise + 0.3)
+                    text(label, size = cap, font = label_font, halign = "center", valign = "center");
+        } else echo("Label skipped: no room for readable letters on this wall");
+    } else if (label != "") echo("Label skipped: part too short for the shelf");
+}
+// Everything inboard of the label face from the shelf's underside up. Dividers and ribs are cut by this so they stop
+// short of the face at full height and only reach the wall underneath the shelf.
+module label_keepout(z_top, tray = false) {
+    sc = lab_scale(z_top);
+    if (label != "" && sc >= 0.5) {
+        fh = label_face * sc;  xd = label_depth * sc;
+        z_under = z_top - fh - xd;
+        u_in = lab_inner(z_top - fh, lab_p, tray) / 2 - xd;
+        big = max(bin_x, bin_y) + 20;
+        translate(lab_ep * lab_s * (u_in - 0.5 + big / 2) + [0, 0, z_under + 0.5 + big / 2]) cube(big, center = true);
+    }
+}
+lab_top = stack ? body_h - plug_depth - 1 : body_h;   // on a stacked bin the shelf sits under the tray plug
+
 // ------------------------------------------------ bottom bin / single bin (built on z = 0, raised later)
 module shell() {
     difference() {
@@ -173,8 +236,8 @@ module body() {
         tapered(bin_x, bin_y, body_h, corner_r, inset);
         union() {
             shell();
-            dividers();
-            ribs();
+            difference() { union() { dividers(); ribs(); } label_keepout(lab_top); }
+            label_shelf(lab_top);
         }
     }
 }
@@ -227,7 +290,13 @@ module tray_dividers() {
 
 module tray() {
     difference() { tray_outer(); tray_cavity(); }
-    intersection() { tray_outer(); tray_dividers(); }
+    intersection() {
+        tray_outer();
+        union() {
+            difference() { tray_dividers(); label_keepout(tray_h, true); }
+            label_shelf(tray_h, true);
+        }
+    }
 }
 
 // ------------------------------------------------ output

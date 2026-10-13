@@ -19,7 +19,7 @@ It runs in your browser. No install, no account. You can also open `index.html` 
 
 1. Pick the case: Medium or Large.
 2. Drag across empty cells on the floor map to draw a bin. Drag a bin to move it.
-3. Select a bin to set its height, dividers, and feet.
+3. Select a bin to set its height, dividers, feet, and a label.
 4. Click **Download all bins**. Matching bins share one STL, and `layout.txt` tells you how many of each to print.
 
 ## The grid
@@ -63,9 +63,19 @@ Get two levels out of one slot. A stacked bin is a shorter bottom bin plus a top
 
 Select a bin and switch it to **Stacked**. Before printing big ones, grab **Fit and print > Download fit test** to dial in the plug clearance. Details in [STACKING.md](STACKING.md).
 
+## Labels
+
+Type a label and the bin gets raised letters on a small shelf inside the wall farthest from you. The shelf's face tilts toward you, so you can read it through the lid with parts in the bin. It prints without supports: the face slopes up, and the underside runs back to the wall at 45°.
+
+- Letters, numbers, space, and `- . / +`. Lowercase prints as capitals.
+- Letters are up to 6 mm tall. A long label gets smaller letters, down to 3.5 mm, then loses characters off the end. The panel says what fits.
+- The shelf reaches 6 mm into the bin and its face is 10 mm tall. Both are under **Fit and print**. Short bins get a smaller shelf.
+- Stacked bins get the label on the bottom bin under the tray plug, and on every tray.
+- Dividers that run into the label wall stop just short of the face, and continue to the wall only underneath the shelf.
+
 ## OpenSCAD
 
-`storehouse_bin.scad` builds the same bins in OpenSCAD with the Customizer. Stacked bins too: render once with `part = "base"` and once with `part = "tray"`. In the web app, **Copy OpenSCAD settings** gives you a block to paste over the top of the file.
+`storehouse_bin.scad` builds the same bins in OpenSCAD with the Customizer, labels included (set `label` and `label_wall`; OpenSCAD uses a real font, the app uses a stroke font). Stacked bins too: render once with `part = "base"` and once with `part = "tray"`. In the web app, **Copy OpenSCAD settings** gives you a block to paste over the top of the file.
 
 ## Files
 

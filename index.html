@@ -118,6 +118,7 @@ header { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content:
 .field label, .field .lab { font-size: .9rem; }
 .field .val { font-family: var(--mono); font-size: .8rem; color: var(--muted); font-variant-numeric: tabular-nums; }
 .field input[type=range] { grid-column: 1 / -1; width: 100%; accent-color: var(--bin-deep); }
+.field input[type=text] { grid-column: 1 / -1; width: 100%; box-sizing: border-box; font: inherit; font-family: var(--mono); font-size: .9rem; text-transform: uppercase; padding: 6px 8px; border: 1px solid var(--line); border-radius: 3px; background: var(--bg); color: var(--ink); }
 .field input[type=number] { width: 84px; font: inherit; font-family: var(--mono); font-size: .85rem; padding: 4px 6px; border: 1px solid var(--line); border-radius: 3px; background: var(--bg); color: var(--ink); }
 .check { display: flex; gap: 8px; align-items: center; font-size: .88rem; margin-top: 10px; cursor: pointer; }
 .check input { accent-color: var(--bin-deep); }
@@ -253,6 +254,17 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
         </div>
         </div>
 
+        <p class="sub">Label <span style="text-transform:none;letter-spacing:0">· raised letters on a shelf inside the far wall</span></p>
+        <div class="field">
+          <label for="label">Text</label><span class="val" id="label-v"></span>
+          <input type="text" id="label" maxlength="24" autocomplete="off" spellcheck="false" placeholder="e.g. M3 NUTS">
+        </div>
+        <div class="seg" role="group" aria-label="Label wall" id="labelSideBox" hidden>
+          <button type="button" id="side-back" data-side="back">Far wall</button>
+          <button type="button" id="side-left" data-side="left">Left wall</button>
+          <button type="button" id="side-right" data-side="right">Right wall</button>
+        </div>
+
         <p class="sub" id="divLabel">Dividers</p>
         <div class="field">
           <label for="divW">Splits across W</label><span class="val" id="divW-v"></span>
@@ -296,6 +308,8 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
           <div class="field"><label for="footH">Foot height</label><input type="number" id="footH" step="0.1" min="0.4" max="5"></div>
           <div class="field"><label for="plugDepth">Stack plug depth</label><input type="number" id="plugDepth" step="0.5" min="2" max="10"></div>
           <div class="field"><label for="plugClear">Stack plug clearance per side</label><input type="number" id="plugClear" step="0.05" min="0" max="1.5"></div>
+          <div class="field"><label for="labelDepth">Label shelf depth</label><input type="number" id="labelDepth" step="0.5" min="3" max="12"></div>
+          <div class="field"><label for="labelFace">Label face height</label><input type="number" id="labelFace" step="0.5" min="6" max="20"></div>
           <button type="button" class="btn ghost small" id="resetAdv">Reset to measured</button>
           <p class="sub" style="margin-top:6px">Stacking fit test</p>
           <p class="map-note">A short 1x1 bin plus three tiny trays at different plug clearances. Prints in minutes. Keep the tray that seats with light friction and enter its clearance above.</p>
@@ -333,10 +347,11 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
   "use strict";
 
   // ================================================================ state
-  var MEASURED = { wall: 1.6, floorT: 1.6, cornerR: 3, draft: 1.5, clearance: 0.25, pitchW: 54, pitchN: 40, hM: 50, hL: 94, footD: 5, footH: 1.6, plugDepth: 4, plugClear: 0.4 };
-  var BIN_OPTS = { ht: "full", customH: 30, divW: 1, divN: 1, divPct: 100, feet: "none", stack: false, lowerH: 0, split: "1", trayDivW: 1, trayDivN: 1 };
+  var MEASURED = { wall: 1.6, floorT: 1.6, cornerR: 3, draft: 1.5, clearance: 0.25, pitchW: 54, pitchN: 40, hM: 50, hL: 94, footD: 5, footH: 1.6, plugDepth: 4, plugClear: 0.4, labelDepth: 6, labelFace: 10 };
+  var BIN_OPTS = { ht: "full", customH: 30, divW: 1, divN: 1, divPct: 100, feet: "none", stack: false, lowerH: 0, split: "1", trayDivW: 1, trayDivN: 1, label: "", labelSide: "back" };
   var TRAY_GAP = 0.6; // stacking: gap between split trays (plug depth and clearance live in S)
   var DIVIDER_T = 1.2; // divider wall thickness
+  var LABEL = { raise: 0.5, stroke: 0.8, capMax: 6, capMin: 3.5, maxLen: 24 }; // raised label letters, mm
   var ADV_KEYS = Object.keys(MEASURED);
   var FOOT_INSET = 4;
   var nextId = 1;
@@ -412,7 +427,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
 
   // ================================================================ restore saved state
   // Anything from localStorage is checked before use: a bad zone or overlapping bins would otherwise break startup.
-  var BIN_ENUMS = { ht: ["full", "half", "custom"], feet: ["none", "corners", "edge"], split: ["1", "w", "n", "4"] };
+  var BIN_ENUMS = { ht: ["full", "half", "custom"], feet: ["none", "corners", "edge"], split: ["1", "w", "n", "4"], labelSide: ["back", "left", "right"] };
   function isNum(v) { return typeof v === "number" && isFinite(v); }
   function isInt(v, lo, hi) { return isNum(v) && v === Math.floor(v) && v >= lo && v <= hi; }
   function cleanBin(raw) { // a saved bin with every field checked, or null if it can't be trusted
@@ -422,8 +437,9 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
     Object.keys(BIN_ENUMS).forEach(function (k) { if (BIN_ENUMS[k].indexOf(b[k]) < 0) b[k] = BIN_OPTS[k]; });
     ["customH", "divW", "divN", "divPct", "lowerH", "trayDivW", "trayDivN"].forEach(function (k) { if (!isNum(b[k])) b[k] = BIN_OPTS[k]; });
     b.stack = !!b.stack;
+    b.label = typeof b.label === "string" ? b.label.slice(0, LABEL.maxLen) : "";
     return { id: b.id, zone: b.zone, c: b.c, r: b.r, w: b.w, n: b.n, ht: b.ht, customH: b.customH, divW: b.divW, divN: b.divN, divPct: b.divPct,
-             feet: b.feet, stack: b.stack, lowerH: b.lowerH, split: b.split, trayDivW: b.trayDivW, trayDivN: b.trayDivN };
+             feet: b.feet, stack: b.stack, lowerH: b.lowerH, split: b.split, trayDivW: b.trayDivW, trayDivN: b.trayDivN, label: b.label, labelSide: b.labelSide };
   }
   function addSavedBin(raw) {
     var b = cleanBin(raw);
@@ -578,23 +594,38 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
     // dividers: the inner wall runs straight from the floor ring (I0) up to the rim ring (I1)
     var i0x = px - 2 * dr - 2 * S.wall, i0y = py - 2 * dr - 2 * S.wall, i1x = t.bx - 2 * S.wall, i1y = t.by - 2 * S.wall;
     function inner(z) { var k = (z - S.floorT) / (H - S.floorT); return { x: i0x + (i1x - i0x) * k, y: i0y + (i1y - i0y) * k }; }
-    var z0 = S.floorT - 0.05;
-    dividerWalls(parts, b.trayDivW, b.trayDivN, inner(z0), inner(H), z0, H);
+    var z0 = S.floorT - 0.05, LF = labelFit(b, inner, H, S.floorT);
+    var lab = LF && !LF.noRoom ? labelShelf(parts, inner, LF) : null;
+    dividerWalls(parts, b.trayDivW, b.trayDivN, inner, z0, H, lab);
     return flatten(parts);
   }
-  // Divider walls between inner outline a (at z0) and bb (at z1): nW walls across W, nN across N.
-  // They run a little into the side walls so the slicer unions them with the shell.
-  function dividerWalls(parts, nW, nN, a, bb, z0, z1) {
-    var ov = S.wall * 0.7, tt = DIVIDER_T;
-    for (var i = 1; i < nW; i++) {
-      var f = i / nW - 0.5, xa = f * a.x, xb = f * bb.x, ya = a.y / 2 + ov, yb = bb.y / 2 + ov;
-      parts.push(hexa([[xa - tt/2, -ya, z0], [xa + tt/2, -ya, z0], [xa + tt/2, ya, z0], [xa - tt/2, ya, z0],
-                       [xb - tt/2, -yb, z1], [xb + tt/2, -yb, z1], [xb + tt/2, yb, z1], [xb - tt/2, yb, z1]]));
+  // Divider walls: nW across W (perpendicular to x) and nN across N, from zlo to zhi. inner(z) gives the inner outline at z.
+  function dividerWalls(parts, nW, nN, inner, zlo, zhi, lab) {
+    for (var i = 1; i < nW; i++) spanBox(parts, inner, 0, i / nW - 0.5, DIVIDER_T, zlo, zhi, lab);
+    for (var j = 1; j < nN; j++) spanBox(parts, inner, 1, j / nN - 0.5, DIVIDER_T, zlo, zhi, lab);
+  }
+  // A box between two opposite walls: perpendicular to axis p (0 = x, 1 = y) at fraction f of the inner width, t thick.
+  // It runs a little into the walls so the slicer unions it with the shell. Where it meets the label wall (lab), it stops
+  // short of the label face at full height and only continues to the wall underneath the shelf.
+  function spanBox(parts, inner, p, f, t, zlo, zhi, lab) {
+    var K = ["x", "y"], s = 1 - p, ov = S.wall * 0.7;
+    function ext(z) { return inner(z)[K[s]] / 2 + ov; }
+    function corners(z, lo, hi) {
+      var pos = f * inner(z)[K[p]], a = pos - t / 2, c = pos + t / 2;
+      return p === 0 ? [[a, lo, z], [c, lo, z], [c, hi, z], [a, hi, z]] : [[lo, a, z], [hi, a, z], [hi, c, z], [lo, c, z]];
     }
-    for (var j = 1; j < nN; j++) {
-      var g = j / nN - 0.5, y0 = g * a.y, y1 = g * bb.y, x0 = a.x / 2 + ov, x1 = bb.x / 2 + ov;
-      parts.push(hexa([[-x0, y0 - tt/2, z0], [x0, y0 - tt/2, z0], [x0, y0 + tt/2, z0], [-x0, y0 + tt/2, z0],
-                       [-x1, y1 - tt/2, z1], [x1, y1 - tt/2, z1], [x1, y1 + tt/2, z1], [-x1, y1 + tt/2, z1]]));
+    function box(zA, eA, zB, eB) { parts.push(hexa(corners(zA, eA[0], eA[1]).concat(corners(zB, eB[0], eB[1])))); }
+    if (lab && lab.p === s && zhi > lab.zUnder) {
+      var edge = lab.uIn - 0.5, sg = lab.sign, zs = Math.min(zhi, lab.zUnder + 0.5);
+      function ends(z, upper) {
+        var e = ext(z);
+        if (upper) return sg > 0 ? [-e, edge] : [-edge, e];
+        return sg > 0 ? [edge - 0.5, e] : [-e, -edge + 0.5];
+      }
+      box(zlo, ends(zlo, true), zhi, ends(zhi, true));
+      box(zlo, ends(zlo, false), zs, ends(zs, false));
+    } else {
+      box(zlo, [-ext(zlo), ext(zlo)], zhi, [-ext(zhi), ext(zhi)]);
     }
   }
   function flatten(parts) { var all = []; parts.forEach(function (q) { Array.prototype.push.apply(all, q); }); return all; }
@@ -632,6 +663,117 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
     return solid(t);
   }
 
+  // ---------------------------------------------------------------- labels
+  // A stroke font for raised letters. Each glyph is a list of polylines in a box 0.7 wide and 1 tall (cap height = 1).
+  var GLYPH_W = 0.7, GLYPH_ADV = 1, SPACE_ADV = 0.6;
+  var FONT = {
+    A: [[[0,0],[.35,1],[.7,0]], [[.12,.35],[.58,.35]]],
+    B: [[[0,0],[0,1],[.5,1],[.7,.85],[.7,.65],[.5,.5],[0,.5]], [[.5,.5],[.7,.35],[.7,.15],[.5,0],[0,0]]],
+    C: [[[.7,.8],[.5,1],[.2,1],[0,.8],[0,.2],[.2,0],[.5,0],[.7,.2]]],
+    D: [[[0,0],[0,1],[.45,1],[.7,.75],[.7,.25],[.45,0],[0,0]]],
+    E: [[[.7,1],[0,1],[0,0],[.7,0]], [[0,.5],[.5,.5]]],
+    F: [[[.7,1],[0,1],[0,0]], [[0,.5],[.5,.5]]],
+    G: [[[.7,.8],[.5,1],[.2,1],[0,.8],[0,.2],[.2,0],[.5,0],[.7,.2],[.7,.45],[.4,.45]]],
+    H: [[[0,0],[0,1]], [[.7,0],[.7,1]], [[0,.5],[.7,.5]]],
+    I: [[[.35,0],[.35,1]], [[.1,1],[.6,1]], [[.1,0],[.6,0]]],
+    J: [[[.7,1],[.7,.2],[.5,0],[.2,0],[0,.2]]],
+    K: [[[0,0],[0,1]], [[.7,1],[0,.4]], [[.25,.55],[.7,0]]],
+    L: [[[0,1],[0,0],[.7,0]]],
+    M: [[[0,0],[0,1],[.35,.45],[.7,1],[.7,0]]],
+    N: [[[0,0],[0,1],[.7,0],[.7,1]]],
+    O: [[[.2,0],[.5,0],[.7,.2],[.7,.8],[.5,1],[.2,1],[0,.8],[0,.2],[.2,0]]],
+    P: [[[0,0],[0,1],[.5,1],[.7,.85],[.7,.6],[.5,.45],[0,.45]]],
+    Q: [[[.2,0],[.5,0],[.7,.2],[.7,.8],[.5,1],[.2,1],[0,.8],[0,.2],[.2,0]], [[.4,.3],[.7,0]]],
+    R: [[[0,0],[0,1],[.5,1],[.7,.85],[.7,.6],[.5,.45],[0,.45]], [[.3,.45],[.7,0]]],
+    S: [[[.7,.8],[.5,1],[.2,1],[0,.85],[0,.65],[.2,.5],[.5,.5],[.7,.35],[.7,.15],[.5,0],[.2,0],[0,.2]]],
+    T: [[[0,1],[.7,1]], [[.35,1],[.35,0]]],
+    U: [[[0,1],[0,.2],[.2,0],[.5,0],[.7,.2],[.7,1]]],
+    V: [[[0,1],[.35,0],[.7,1]]],
+    W: [[[0,1],[.15,0],[.35,.55],[.55,0],[.7,1]]],
+    X: [[[0,0],[.7,1]], [[0,1],[.7,0]]],
+    Y: [[[0,1],[.35,.5],[.7,1]], [[.35,.5],[.35,0]]],
+    Z: [[[0,1],[.7,1],[0,0],[.7,0]]],
+    "0": [[[.2,0],[.5,0],[.7,.2],[.7,.8],[.5,1],[.2,1],[0,.8],[0,.2],[.2,0]], [[.15,.25],[.55,.75]]],
+    "1": [[[.12,.8],[.35,1],[.35,0]], [[.1,0],[.6,0]]],
+    "2": [[[0,.8],[.2,1],[.5,1],[.7,.8],[.7,.6],[0,0],[.7,0]]],
+    "3": [[[0,1],[.7,1],[.35,.58],[.5,.58],[.7,.4],[.7,.18],[.5,0],[.2,0],[0,.18]]],
+    "4": [[[.55,0],[.55,1],[0,.3],[.7,.3]]],
+    "5": [[[.7,1],[0,1],[0,.55],[.45,.58],[.7,.4],[.7,.18],[.5,0],[.2,0],[0,.18]]],
+    "6": [[[.65,1],[.3,1],[0,.65],[0,.18],[.2,0],[.5,0],[.7,.18],[.7,.4],[.5,.58],[0,.52]]],
+    "7": [[[0,1],[.7,1],[.25,0]]],
+    "8": [[[.2,.52],[0,.68],[0,.85],[.2,1],[.5,1],[.7,.85],[.7,.68],[.5,.52],[.2,.52],[0,.36],[0,.16],[.2,0],[.5,0],[.7,.16],[.7,.36],[.5,.52]]],
+    "9": [[[.7,.48],[.2,.42],[0,.6],[0,.82],[.2,1],[.5,1],[.7,.82],[.7,.35],[.4,0]]],
+    "-": [[[.1,.5],[.6,.5]]],
+    ".": [[[.3,0],[.4,0]]],
+    "/": [[[0,0],[.7,1]]],
+    "+": [[[.35,.2],[.35,.8]], [[.05,.5],[.65,.5]]],
+    "'": [[[.35,1],[.35,.78]]]
+  };
+  function cleanLabel(t) { return String(t || "").toUpperCase().replace(/[^A-Z0-9 \-.\/+']/g, "").replace(/\s+/g, " ").trim().slice(0, LABEL.maxLen); }
+  function labelAdvance(ch) { return ch === " " ? SPACE_ADV : GLYPH_ADV; }
+  function labelUnits(text) { var u = 0; for (var i = 0; i < text.length; i++) u += labelAdvance(text[i]); return u - (GLYPH_ADV - GLYPH_W); }
+  function cross(a, b) { return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]; }
+  function prism6(v) { // triangular prism: v[0..2] one end, v[3..5] the other end in the same order
+    var F = [[0,1,2],[3,5,4],[0,3,4],[0,4,1],[1,4,5],[1,5,2],[2,5,3],[2,3,0]];
+    return solid(F.map(function (f) { return [v[f[0]], v[f[1]], v[f[2]]]; }));
+  }
+  // Which inner wall carries the label: p = axis the wall is perpendicular to (0 = x/W, 1 = y/N), sign = which end.
+  // The viewer stands at the handle strip. In the main block W runs away from the viewer; in the handle pockets N does.
+  function labelFace(b) {
+    var map = b.zone === "main" ? { back: [0, 1], left: [1, 1], right: [1, -1] } : { back: [1, 1], right: [0, 1], left: [0, -1] };
+    var m = map[b.labelSide] || map.back; return { p: m[0], sign: m[1] };
+  }
+  function binLabelTop(D, b) { return b.stack ? D.zt - S.plugDepth - 1 : D.zt; } // the shelf sits under the tray plug on a stacked bin
+  // Where the shelf and letters go for one part, or null without a label. inner(z) is the inner outline at height z,
+  // zTop is where the shelf meets the wall. Short parts get a smaller shelf; long labels get smaller letters, then fewer.
+  function labelFit(b, inner, zTop, zFloor) {
+    var text = cleanLabel(b.label); if (!text) return null;
+    var f = labelFace(b), K = ["x", "y"], p = f.p, s = 1 - p;
+    var sc = Math.min(1, (zTop - zFloor - 0.5) / (S.labelFace + S.labelDepth));
+    if (sc < 0.5) return { text: text, noRoom: true };
+    var FH = S.labelFace * sc, X = S.labelDepth * sc, zMid = zTop - FH, zUnder = zMid - X;
+    var L = inner(zUnder)[K[s]] - 2 * (Math.max(S.cornerR - S.wall, 0.5) + 0.5);
+    var capMax = Math.min(LABEL.capMax, Math.hypot(FH, X) - 3), shown = text, cap = Math.min(capMax, (L - 3) / labelUnits(shown));
+    while (cap < LABEL.capMin && shown.length > 1) { shown = shown.slice(0, -1).trim(); cap = Math.min(capMax, (L - 3) / labelUnits(shown)); }
+    if (cap < LABEL.capMin || L < 8) return { text: text, noRoom: true };
+    return { text: text, shown: shown, dropped: text.length - shown.length, cap: cap, p: p, s: s, sign: f.sign,
+             zTop: zTop, zMid: zMid, zUnder: zUnder, L: L, uIn: inner(zMid)[K[p]] / 2 - X, ov: S.wall * 0.7 };
+  }
+  // The shelf: a triangular prism fused to the inside of the wall just below zTop. Its face slopes up toward the viewer
+  // and carries the letters; its underside runs back to the wall at 45 degrees so it prints without supports.
+  // Returns what spanBox needs to keep dividers off the face.
+  function labelShelf(parts, inner, F) {
+    var K = ["x", "y"], p = F.p, sg = F.sign, h = F.L / 2, uIn = sg * F.uIn;
+    function uWall(z) { return sg * (inner(z)[K[p]] / 2 + F.ov); }
+    function pt(u, v, z) { return p === 0 ? [u, v, z] : [v, u, z]; }
+    var uTop = uWall(F.zTop), uUnder = uWall(F.zUnder);
+    parts.push(prism6([pt(uTop, -h, F.zTop), pt(uIn, -h, F.zMid), pt(uUnder, -h, F.zUnder), pt(uTop, h, F.zTop), pt(uIn, h, F.zMid), pt(uUnder, h, F.zUnder)]));
+    // a frame on the face: origin at its center, hv = reading direction along the wall, qv = up the slope, nv = out of the face
+    var uFace = sg * inner(F.zTop)[K[p]] / 2, du = uFace - uIn, dz = F.zTop - F.zMid, len = Math.hypot(du, dz);
+    var ep = p === 0 ? [1, 0, 0] : [0, 1, 0];
+    var hv = p === 0 ? [0, -sg, 0] : [sg, 0, 0];
+    var qv = [ep[0] * du / len, ep[1] * du / len, dz / len], nv = cross(hv, qv);
+    labelLetters(parts, F.shown, F.cap, pt((uFace + uIn) / 2, 0, (F.zTop + F.zMid) / 2), hv, qv, nv);
+    return { p: p, sign: sg, uIn: F.uIn, zUnder: F.zUnder };
+  }
+  function labelLetters(parts, text, cap, o, hv, qv, nv) {
+    var hw = LABEL.stroke / 2, n0 = -0.3, n1 = LABEL.raise; // letters start inside the shelf so they fuse with it
+    function P(hh, qq, nn) { return [o[0] + hv[0] * hh + qv[0] * qq + nv[0] * nn, o[1] + hv[1] * hh + qv[1] * qq + nv[1] * nn, o[2] + hv[2] * hh + qv[2] * qq + nv[2] * nn]; }
+    var x = -labelUnits(text) * cap / 2, y = -cap / 2;
+    for (var i = 0; i < text.length; i++) {
+      var g = FONT[text[i]];
+      if (g) g.forEach(function (poly) {
+        for (var k = 0; k + 1 < poly.length; k++) { // each stroke is a box with square ends so joints close up
+          var x1 = x + poly[k][0] * cap, y1 = y + poly[k][1] * cap, x2 = x + poly[k + 1][0] * cap, y2 = y + poly[k + 1][1] * cap;
+          var dx = x2 - x1, dy = y2 - y1, l = Math.hypot(dx, dy) || 1, ex = dx / l * hw, ey = dy / l * hw, px = -dy / l * hw, py = dx / l * hw;
+          var c = [[x1 - ex - px, y1 - ey - py], [x2 + ex - px, y2 + ey - py], [x2 + ex + px, y2 + ey + py], [x1 - ex + px, y1 - ey + py]];
+          parts.push(hexa(c.map(function (q) { return P(q[0], q[1], n0); }).concat(c.map(function (q) { return P(q[0], q[1], n1); }))));
+        }
+      });
+      x += labelAdvance(text[i]) * cap;
+    }
+  }
+
   function buildBin(b) {
     var D = dims(b), seg = 8, parts = [], r = S.cornerR;
     var ob = outerAt(D, D.zb), it = innerAt(D, D.zt), ifl = innerAt(D, D.zf);
@@ -643,17 +785,14 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
 
     var z0 = D.zf - 0.05, z1 = D.zf + (D.zt - D.zf) * b.divPct / 100;
     if (b.stack) z1 = Math.min(z1, D.zt - S.plugDepth - 1); // leave room for the tray plug
-    dividerWalls(parts, b.divW, b.divN, innerAt(D, z0), innerAt(D, z1), z0, z1);
+    var innerB = function (z) { return innerAt(D, z); }, LF = labelFit(b, innerB, binLabelTop(D, b), D.zf);
+    var lab = LF && !LF.noRoom ? labelShelf(parts, innerB, LF) : null;
+    dividerWalls(parts, b.divW, b.divN, innerB, z0, z1, lab);
     if (b.stack && b.split !== "1") {
       // support ribs under split lines, up to rim height, sized to sit between neighboring tray plugs
-      var ov = S.wall * 0.7, rt = 2 * S.wall + TRAY_GAP, za = D.zf - 0.05, zr = D.zt;
-      var ia = innerAt(D, za), ir = innerAt(D, zr);
-      if (b.split === "w" || b.split === "4")
-        parts.push(hexa([[-rt/2, -ia.y/2 - ov, za], [rt/2, -ia.y/2 - ov, za], [rt/2, ia.y/2 + ov, za], [-rt/2, ia.y/2 + ov, za],
-                         [-rt/2, -ir.y/2 - ov, zr], [rt/2, -ir.y/2 - ov, zr], [rt/2, ir.y/2 + ov, zr], [-rt/2, ir.y/2 + ov, zr]]));
-      if (b.split === "n" || b.split === "4")
-        parts.push(hexa([[-ia.x/2 - ov, -rt/2, za], [ia.x/2 + ov, -rt/2, za], [ia.x/2 + ov, rt/2, za], [-ia.x/2 - ov, rt/2, za],
-                         [-ir.x/2 - ov, -rt/2, zr], [ir.x/2 + ov, -rt/2, zr], [ir.x/2 + ov, rt/2, zr], [-ir.x/2 - ov, rt/2, zr]]));
+      var rt = 2 * S.wall + TRAY_GAP, sp = splitOf(b.split);
+      if (sp.kx === 2) spanBox(parts, innerB, 0, 0, rt, D.zf - 0.05, D.zt, lab);
+      if (sp.ky === 2) spanBox(parts, innerB, 1, 0, rt, D.zf - 0.05, D.zt, lab);
     }
     if (b.feet !== "none") {
       var bxH = ob.x / 2 - FOOT_INSET, byH = ob.y / 2 - FOOT_INSET, pts = [];
@@ -682,14 +821,18 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
   }
   function trayStem(b) {
     return S.caseType + "-" + b.w + "x" + b.n + "-stack-top" + Math.round(trayH(b)) + SPLIT_NAME[b.split] +
-      (b.trayDivW > 1 || b.trayDivN > 1 ? "-div" + b.trayDivW + "x" + b.trayDivN : "");
+      (b.trayDivW > 1 || b.trayDivN > 1 ? "-div" + b.trayDivW + "x" + b.trayDivN : "") + labelStem(b);
+  }
+  function labelStem(b) {
+    var t = cleanLabel(b.label);
+    return t ? "-lbl-" + t.replace(/[^A-Z0-9]+/g, "_") + (b.labelSide !== "back" ? "-" + b.labelSide : "") : "";
   }
   function fileStem(b) {
     var s = codeOf(b);
     if (b.stack) s += "-base" + Math.round(lowerH(b)) + (b.split === "1" ? "" : "-rib" + b.split);
     if (b.divW > 1 || b.divN > 1) s += "-div" + b.divW + "x" + b.divN + (b.divPct < 100 ? "-" + b.divPct + "pct" : "");
     if (b.feet === "corners") s += "-feet"; else if (b.feet === "edge") s += "-edgefeet";
-    return s;
+    return s + labelStem(b);
   }
   function describe(b) {
     var bits = [];
@@ -699,6 +842,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
     else bits.push(b.ht === "full" ? "full height" : b.ht === "half" ? "half height" : Math.round(D.h) + " mm tall");
     if (b.divW > 1 || b.divN > 1) bits.push(b.divW * b.divN + " sections");
     if (b.feet !== "none") bits.push(b.feet === "corners" ? "corner feet" : "edge feet");
+    if (cleanLabel(b.label)) bits.push('"' + cleanLabel(b.label) + '"');
     if (b.zone !== "main") bits.push("handle pocket");
     return bits.join(" · ");
   }
@@ -901,7 +1045,9 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
       });
       frameKey = "case|" + S.caseType;
     } else if (on) {
-      three.world.add(binObject(on, three.matOn));
+      var one = binObject(on, three.matOn); // turned the way it sits in the case, so the label wall faces the camera
+      if (on.zone === "main") one.rotation.y = Math.PI / 2;
+      three.world.add(one);
       frameKey = "bin|" + on.id + "|" + on.w + "x" + on.n + "|" + S.caseType + "|" + on.ht + "|" + on.stack;
     }
     if (frameKey && frameKey !== lastFrame) {
@@ -1012,7 +1158,16 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
     $("divW").value = b.divW; $("divW-v").textContent = sections(b.divW);
     $("divN").value = b.divN; $("divN-v").textContent = sections(b.divN);
     $("divPct").value = b.divPct; $("divPct-v").textContent = b.divPct + "%";
+    if (document.activeElement !== $("label")) $("label").value = b.label;
+    $("labelSideBox").hidden = !cleanLabel(b.label); setPressed("side", b.labelSide);
+    $("label-v").textContent = labelNote(b, D);
     $("specs").innerHTML = specRows(b, D).map(function (s) { return '<div class="spec"><span>' + s[0] + "</span><b>" + s[1] + "</b></div>"; }).join("");
+  }
+  function labelNote(b, D) {
+    var text = cleanLabel(b.label); if (!text) return "";
+    var F = labelFit(b, function (z) { return innerAt(D, z); }, binLabelTop(D, b), D.zf);
+    if (F.noRoom) return "no room for a shelf on this bin";
+    return f1(F.cap) + " mm letters" + (F.dropped ? " · " + F.shown.length + " of " + text.length + " fit" : "");
   }
   function specRows(b, D) {
     if (b.stack) {
@@ -1066,6 +1221,8 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
   $("n-minus").addEventListener("click", function () { resize(0, -1); });
   $("n-plus").addEventListener("click", function () { resize(0, 1); });
   ["divW", "divN", "divPct", "customH", "trayDivW", "trayDivN"].forEach(function (k) { $(k).addEventListener("input", function () { var b = sel(); if (b) { b[k] = +$(k).value; update(); } }); });
+  $("label").addEventListener("input", function () { var b = sel(); if (b) { b.label = $("label").value.slice(0, LABEL.maxLen); update(); } });
+  document.querySelectorAll("[data-side]").forEach(function (x) { x.addEventListener("click", function () { var b = sel(); if (b) { b.labelSide = x.getAttribute("data-side"); update(); } }); });
   ADV_KEYS.forEach(function (k) {
     $(k).addEventListener("change", function () {
       var v = parseFloat($(k).value);
@@ -1076,7 +1233,8 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
   $("resetAdv").addEventListener("click", function () { Object.assign(S, MEASURED); update(); });
   $("applyAll").addEventListener("click", function () {
     var b = sel(); if (!b) return;
-    S.bins.forEach(function (o) { Object.keys(BIN_OPTS).forEach(function (k) { o[k] = b[k]; }); });
+    var keys = Object.keys(BIN_OPTS).filter(function (k) { return k !== "label" && k !== "labelSide"; }); // labels stay per bin
+    S.bins.forEach(function (o) { keys.forEach(function (k) { o[k] = b[k]; }); });
     say("Applied bin " + idx(b) + "'s height, dividers and feet to all " + S.bins.length + " bins."); update();
   });
   $("delSel").addEventListener("click", function () { var b = sel(); if (b) removeBin(b.id); });
@@ -1106,6 +1264,8 @@ button:focus-visible, input:focus-visible, summary:focus-visible, li:focus-visib
       "tray_div_w = " + b.trayDivW + ";", "tray_div_n = " + b.trayDivN + ";",
       "div_w = " + b.divW + ";", "div_n = " + b.divN + ";", "divider_height_pct = " + b.divPct + ";",
       "feet = \"" + (b.feet === "edge" ? "perimeter" : b.feet) + "\";",
+      "label = \"" + cleanLabel(b.label).replace(/[\\"]/g, "") + "\";", "label_wall = \"" + (labelFace(b).p === 0 ? "W" : "N") + (labelFace(b).sign > 0 ? "+" : "-") + "\";",
+      "label_depth = " + S.labelDepth + ";", "label_face = " + S.labelFace + ";",
       "pitch_w = " + S.pitchW + ";", "pitch_n = " + S.pitchN + ";", "height_M = " + S.hM + ";", "height_L = " + S.hL + ";",
       "clearance = " + S.clearance + ";", "wall = " + S.wall + ";", "floor_t = " + S.floorT + ";",
       "corner_r = " + S.cornerR + ";", "draft_deg = " + S.draft + ";", "foot_d = " + S.footD + ";", "foot_h = " + S.footH + ";",
