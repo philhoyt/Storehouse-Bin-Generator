@@ -4,6 +4,8 @@ Print custom bins that drop right into Harbor Freight STOREHOUSE parts cases. Dr
 
 [![Open the app](https://img.shields.io/badge/Open_the_app-Storehouse_Bin_Builder-F2B200?style=for-the-badge&labelColor=1C1C1A)](https://philhoyt.github.io/Storehouse-Bin-Generator/)
 
+[![Storehouse Bin Builder: a Medium case layout on the floor grid, with the same bins in 3D](docs/screenshot.png)](https://philhoyt.github.io/Storehouse-Bin-Generator/)
+
 Works with:
 
 - [20-Bin Medium Portable Parts Storage Case](https://www.harborfreight.com/20-bin-medium-portable-parts-storage-case-93928.html)
