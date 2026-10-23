@@ -2,7 +2,7 @@
 import { zones, canPlace } from "./layout.js";
 import { cleanLabelMap, spreadLabel, gridShape } from "./bins.js";
 
-var MEASURED = { wall: 1.6, floorT: 1.6, cornerR: 3, draft: 1.5, clearance: 0.25, pitchW: 54, pitchN: 40, hM: 50, hL: 94, footD: 5, footH: 1.6, plugDepth: 4, plugClear: 0.4, labelDepth: 6, labelFace: 10 };
+var MEASURED = { wall: 1.6, floorT: 1.6, cornerR: 3, draft: 1.5, clearance: 0.25, pitchW: 54, pitchN: 40, hM: 48, hL: 92, footD: 5, footH: 1.6, plugDepth: 4, plugClear: 0.4, labelDepth: 6, labelFace: 10 };
 var BIN_OPTS = { ht: "full", customH: 30, divW: 1, divN: 1, divPct: 100, feet: "none", stack: false, lowerH: 0, split: "1", trayDivW: 1, trayDivN: 1, labels: {}, labelSide: "back", labelPlate: false, trayLabels: [] };
 var STEP_LIMITS = { divW: [1, 8], divN: [1, 10], trayDivW: [1, 6], trayDivN: [1, 8] };
 var TRAY_GAP = 0.6; // stacking: gap between split trays (plug depth and clearance live in S)

@@ -62,8 +62,8 @@ tray_div_n   = 1;       // compartments inside each tray, across N
 /* [Grid calibration] */
 pitch_w   = 54;    // mm per W cell (stock large bin: 108 = 2 cells)
 pitch_n   = 40;    // mm per N cell (stock large bin: 160 = 4 cells)
-height_M  = 50;    // mm, Medium case bins
-height_L  = 94;    // mm, Large case bins
+height_M  = 48;    // mm, Medium case bins
+height_L  = 92;    // mm, Large case bins
 clearance = 0.25;  // mm off each side so printed bins drop in (stock fit is snug)
 
 /* [Construction] */

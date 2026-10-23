@@ -30,8 +30,8 @@ Both cases share one floor grid. Each cell is one pocket in the case floor.
 |---|---|
 | W cell | 54 mm |
 | N cell | 40 mm |
-| Medium case height | 50 mm |
-| Large case height | 94 mm |
+| Medium case height | 48 mm |
+| Large case height | 92 mm |
 
 Every bin has a code: `<case>-<W>x<N>`. `M-1x2` is one W cell by two N cells, Medium case height.
 

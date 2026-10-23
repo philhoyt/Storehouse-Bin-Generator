@@ -46,9 +46,9 @@ test("stacked bins export a base and trays, trays with the same labels share a f
   S.bins = [b];
   b.labels = { "0,0": "BASE" }; b.trayLabels = [{ "0,0": "M3" }, { "0,0": "M4" }, { "0,0": "M3" }, {}];
   const names = (await unzip(ex.oneBinFiles(b).files)).map(f => f.name);
-  assert.deepEqual(names, ["M-2x2-stack-base20-rib4-lbl-BASE.stl", "M-2x2-stack-top34-split4-lbl-M3-x2.stl", "M-2x2-stack-top34-split4-lbl-M4.stl", "M-2x2-stack-top34-split4.stl"]);
+  assert.deepEqual(names, ["M-2x2-stack-base20-rib4-lbl-BASE.stl", "M-2x2-stack-top32-split4-lbl-M3-x2.stl", "M-2x2-stack-top32-split4-lbl-M4.stl", "M-2x2-stack-top32-split4.stl"]);
   b.labelPlate = true;
-  assert.ok((await unzip(ex.oneBinFiles(b).files)).some(f => f.name === "M-2x2-stack-top34-split4-plate.stl"));
+  assert.ok((await unzip(ex.oneBinFiles(b).files)).some(f => f.name === "M-2x2-stack-top32-split4-plate.stl"));
 });
 
 test("OpenSCAD settings carry the bin and its labels", () => {
