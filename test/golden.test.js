@@ -14,11 +14,11 @@ test("stacked bin with four trays, dividers, feet: download selected and all", a
   const { S, ex, stock } = fresh("M"); stock();
   const b = S.bins[0];
   Object.assign(b, { stack: true, split: "4", trayDivW: 2, trayDivN: 2, divW: 2, divN: 3, divPct: 50, feet: "corners", lowerH: 20 });
-  assert.equal(await hashZip(ex.oneBinFiles(b).files), "98fe2b98d472bc1a:59908");
+  assert.equal(await hashZip(ex.oneBinFiles(b).files), "ec88ff0ac208c14a:59908");
   const b17 = S.bins[16];
   Object.assign(b17, { stack: true, split: "w", divW: 3 });
   assert.equal(await hashZip(ex.oneBinFiles(b17).files), "57cdc8e97c699d1f:38274");
-  assert.equal(await hashZip(ex.allBinsFiles().files), "af27607d11d2ee5d:142623");
+  assert.equal(await hashZip(ex.allBinsFiles().files), "feebacc91523a1dd:142623");
 });
 
 function largeScenario() {
@@ -32,7 +32,7 @@ function largeScenario() {
 
 test("Large stock layout with custom height, edge feet, changed fit settings, a stacked pocket bin", async () => {
   const { ex } = largeScenario();
-  assert.equal(await hashZip(ex.allBinsFiles().files), "78fbc1a3f90d92a:140198");
+  assert.equal(await hashZip(ex.allBinsFiles().files), "a52cc9ea8d6fce4a:140198");
 });
 
 test("fit test kit with changed fit settings", async () => {
@@ -43,7 +43,7 @@ test("fit test kit with changed fit settings", async () => {
 test("apply one bin's options to all, then half height on the first", async () => {
   const { S, ex } = largeScenario();
   applyAll(S, S.bins[0]);
-  assert.equal(await hashZip(ex.allBinsFiles().files), "9a3c835aa5419c1:125573");
+  assert.equal(await hashZip(ex.allBinsFiles().files), "e70b037f4ce7f9b1:125573");
   S.bins[0].ht = "half";
-  assert.equal(await hashZip(ex.oneBinFiles(S.bins[0]).files), "aaa95f83e3eaf679:72228");
+  assert.equal(await hashZip(ex.oneBinFiles(S.bins[0]).files), "a8e2bb83ecaa9b59:72228");
 });

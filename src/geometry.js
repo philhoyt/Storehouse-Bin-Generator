@@ -85,8 +85,8 @@ function createGeometry(S) {
     var bx = b.w * S.pitchW - 2 * S.clearance, by = b.n * S.pitchN - 2 * S.clearance;
     var full = caseH();
     var h = b.stack ? lowerH(b) : b.ht === "half" ? full / 2 : b.ht === "custom" ? Math.min(b.customH, full) : full;
-    var zb = b.feet !== "none" ? S.footH : 0, bodyH = h - zb;
-    return { bx: bx, by: by, h: h, full: full, zb: zb, zt: h, bodyH: bodyH, ins: bodyH * tanDeg(S.draft), zf: zb + S.floorT };
+    var zb = b.feet !== "none" ? S.footH : 0, bodyH = h; // feet add to the height, under the full body
+    return { bx: bx, by: by, h: h, full: full, zb: zb, zt: zb + h, bodyH: bodyH, ins: bodyH * tanDeg(S.draft), zf: zb + S.floorT };
   }
   function lowerH(b) { var full = caseH(), v = b.lowerH > 0 ? b.lowerH : full / 2; return Math.max(15, Math.min(full - 15, v)); }
   function trayH(b) { return caseH() - lowerH(b) + S.plugDepth; }

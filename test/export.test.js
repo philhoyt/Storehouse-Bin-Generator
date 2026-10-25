@@ -61,3 +61,10 @@ test("OpenSCAD settings carry the bin and its labels", () => {
   assert.match(t, /labels = \[\["M5", "M4"\], \["BOLTS", "NUTS"\]\];/); // row 0 is the far row; columns run from -N to +N, which is right to left as seen from the front
   assert.match(t, /label_wall = "W\+";/);
 });
+
+test("feet add to the bin's height instead of coming out of it", () => {
+  const { S, geo, newBin } = fresh("M");
+  const top = b => Math.max(...geo.buildBin(b).flat().map(v => v[2]));
+  assert.equal(top(newBin("main", 0, 0, 1, 1)), S.hM);
+  assert.equal(top(newBin("main", 0, 0, 1, 1, { feet: "corners" })), S.hM + S.footH);
+});

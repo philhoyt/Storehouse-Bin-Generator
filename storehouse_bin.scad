@@ -90,7 +90,8 @@ low_h  = max(15, min(full_h - 15, lower_height > 0 ? lower_height : full_h / 2))
 bin_h  = stack ? low_h
        : custom_height > 0 ? min(custom_height, full_h)
        : half_height ? full_h / 2 : full_h;
-body_h = bin_h - (feet == "none" ? 0 : foot_h);
+body_h = bin_h;  // feet add foot_h below the body, they do not eat into it
+feet_h = feet == "none" ? 0 : foot_h;
 inset  = body_h * tan(draft_deg);  // body bottom is this much smaller per side
 
 tray_h = full_h - low_h + plug_depth;  // overall tray height, plug included
@@ -342,6 +343,6 @@ if (!stack) {
         color("orange")
             translate([-bin_x/2 + tray_x/2 + i * (tray_x + tray_gap),
                        -bin_y/2 + tray_y/2 + j * (tray_y + tray_gap),
-                       bin_h - plug_depth])
+                       feet_h + bin_h - plug_depth])
                 tray();
 }

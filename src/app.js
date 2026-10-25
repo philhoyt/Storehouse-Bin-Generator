@@ -238,7 +238,7 @@ import { createExport, zip } from "./export.js";
       trays(b).forEach(function (t, k) {
         var TG = geoPart(tps[k].stem, tps[k].make), tm = new THREE.Group();
         tm.add(new THREE.Mesh(TG.mesh, mat === three.matOn ? three.matTray : three.matOff), new THREE.LineSegments(TG.edges, three.lineMat));
-        tm.position.set(t.cx, t.cy, lowerH(b) - S.plugDepth + lift);
+        tm.position.set(t.cx, t.cy, dims(b).zt - S.plugDepth + lift);
         inner.add(tm);
       });
     }
